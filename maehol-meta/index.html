@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>메타 투어 매홀 - 나와 만나는 학교</title>
+  <link rel="icon" href="data:,">
+  <style>
+    @font-face { font-family: 'Galmuri11'; src: url('fonts/Galmuri11.woff2') format('woff2'); font-weight: 400; }
+    @font-face { font-family: 'Galmuri11'; src: url('fonts/Galmuri11-Bold.woff2') format('woff2'); font-weight: 700; }
+    @font-face { font-family: 'Galmuri9'; src: url('fonts/Galmuri9.woff2') format('woff2'); font-weight: 400; }
+    html, body { margin: 0; height: 100%; background: #120d1a; overflow: hidden; }
+    #game { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    canvas { image-rendering: pixelated; width: min(100vw, 177.78vh) !important; height: auto !important; display: block; outline: none; }
+    #noscript { color: #fff; font-family: sans-serif; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <noscript><div id="noscript">이 게임은 JavaScript가 필요해요.</div></noscript>
+
+  <script src="lib/p5.min.js"></script>
+  <script src="config.js"></script>
+  <script src="js/data/map.js"></script>
+  <script src="js/data/assets.js"></script>
+  <script src="data/script.js"></script>
+  <script src="data/quiz.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/assets.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/sfx.js"></script>
+  <script src="js/tm.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/scene_title.js"></script>
+  <script src="js/scene_select.js"></script>
+  <script src="js/scene_play.js"></script>
+  <script src="sketch.js"></script>
+</body>
+</html>
