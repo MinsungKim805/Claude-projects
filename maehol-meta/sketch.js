@@ -353,7 +353,7 @@ function drawWorld(hintGate) {
   for (const o of objs) if (visible(o.x, o.y, o.w, o.h)) list.push({ sort: o.sort, draw: () => c.drawImage(IMG.obj[o.n], o.x - cx, o.y - cy) });
   for (const g of gates) {
     const [gw, gh] = g.o === "v" ? [T, g.size * T] : [g.size * T, T];
-    if (visible(g.x * T, g.y * T, gw, gh)) list.push({ sort: (g.y + gh / T) * T, draw: () => c.drawImage(IMG.obj[`gate_${g.o}_${g.open ? "open" : "closed"}`], g.x * T - cx, g.y * T - cy) });
+    if (visible(g.x * T, g.y * T, gw, gh)) list.push({ sort: (g.y + gh / T) * T, draw: () => c.drawImage(IMG.obj[`gate_${g.o}${g.size}_${g.open ? "open" : "closed"}`], g.x * T - cx, g.y * T - cy) });
   }
   for (const e of [...npcs, player]) {
     const isNpc = e !== player, frame = e.moving ? [1, 0, 2, 0][Math.floor(e.anim * 8) % 4] : 0;   // 걸을 때 1→0→2→0 반복
@@ -608,7 +608,7 @@ scenes.select = {
 // ---------------------------------------------------------------------
 let mode = "explore", dlg = null, quiz = null;             // 지금 모드, 진행 중인 대화, 진행 중인 퀴즈
 let zone = null, zoneT = 0, hintGate = null, nearNpc = null;   // 지금 장소, 장소 이름을 보여준 시간, 방금 열린 문, 가까이 있는 NPC
-let cooldown = {}, gateCool = 0, chatIdx = {}, mini = null;    // NPC별 쉬는 시간, 문 알림 간격, 수다 NPC 순서, 미니맵 그림
+let cooldown = {}, gateCool = 0, mini = null;    // NPC별 쉬는 시간, 문 알림 간격, 미니맵 그림
 const allDone = () => AREAS.every((a) => done[a]);        // 4곳 소개를 모두 끝냈는지
 // NPC 머리 위에 어떤 말풍선을 보일지 (없으면 null)
 function npcIcon(n) {
@@ -619,7 +619,7 @@ function npcIcon(n) {
 scenes.game = {
   enter(arg) {
     if (arg?.fresh) {   // 새 게임: 진행 상황을 모두 처음으로
-      done = {}; quizDone = false; mode = "explore"; dlg = quiz = hintGate = zone = null; cooldown = {}; chatIdx = {}; toasts = [];
+      done = {}; quizDone = false; mode = "explore"; dlg = quiz = hintGate = zone = null; cooldown = {}; toasts = [];
       resetWorld();
       toast("W A S D 로 걸어 다녀요!", "star");
       if (/[?&]unlock/.test(location.search)) { AREAS.forEach((a) => (done[a] = true)); openGates(false); toast("시험 모드: 모든 문이 열려 있어요", "check"); }   // 주소 뒤에 ?unlock → 모든 문이 열려요
@@ -669,11 +669,7 @@ scenes.game = {
     else if (n.role === "quiz") {                                                                      // 반장: 소개를 다 듣기 전엔 돌려보내요
       if (!allDone()) this.say(n, S.quiz.locked);
       else this.say(n, quizDone ? S.quiz.again : S.quiz.intro, () => { mode = "quiz"; quiz = { i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0 }; });
-    } else {   // 수다 NPC: 말을 걸 때마다 다음 말을 해요
-      const list = S.chat[n.id] || ["안녕!"], i = chatIdx[n.id] || 0;
-      chatIdx[n.id] = i + 1;
-      this.say(n, [list[i % list.length]]);
-    }
+    } else this.say(n, S.chat[n.id] || ["안녕!"]);   // 복도 NPC: 학교 이야기를 들려줘요 (필수는 아니에요)
   },
   say(npc, lines, onDone) {   // 대화창 열기. lines = 대사 목록, onDone = 끝난 뒤 할 일
     mode = "dialogue"; dlg = { npc, lines, idx: 0, shown: 0, done: false, onDone }; sfx("click");

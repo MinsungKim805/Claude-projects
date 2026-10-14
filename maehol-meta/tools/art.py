@@ -908,7 +908,7 @@ def kitchen(n):
     s.r(2, 41, W - 3, 42, c("#6b7699"))
     for x in range(4, W - 4, 8):                                                 # 걸린 조리도구
         s.r(x, 3, x, 6, c("#4a5478"))
-    for cx in (62, 190):
+    for cx in (int(W * 0.27), int(W * 0.73)):                                    # 배식대 2개 = 조리사 두 분
         _cook(s, cx, 14)
     for x in range(0, W, 16):                                                    # 아래 타일 띠
         s.r(x, H - 8, x + 7, H - 1, c("#e4ecfa") if (x // 16) % 2 == 0 else c("#cfd8ee"))
@@ -960,11 +960,11 @@ def truss(n):
     return decor_ret(s, n, 0.625)
 
 
-def gate(orient, open_):
+def gate(orient, size, open_):
     if orient == "v":
-        W, H = T, 4 * T
+        W, H = T, size * T
     else:
-        W, H = 6 * T, T
+        W, H = size * T, T
     s = S(W, H)
     stripe_a, stripe_b = c("#ffd23a"), c("#3a3a52")
     if open_:
@@ -1038,10 +1038,148 @@ def get_decor(name):
     m = re.fullmatch(r"truss_(\d+)", name)
     if m:
         return truss(int(m[1]))
-    m = re.fullmatch(r"gate_([vh])_(open|closed)", name)
+    m = re.fullmatch(r"gate_([vh])(\d+)_(open|closed)", name)
     if m:
-        return gate(m[1], m[2] == "open")
+        return gate(m[1], int(m[2]), m[3] == "open")
     raise KeyError(name)
+
+
+# ---------------------------------------------------------------- 운동장: 관중석 / 계단 / 구령대 / 본관 입구
+def stand(w=4, d=3):
+    """햇빛 가리개(차양)가 있는 관중석. 앞에서 본 3단 좌석."""
+    W, H = w * T, 38 + d * T + 4
+    s = S(W, H + PAD)
+    ink = c("#3a4a8a")
+    # 좌석 3단 (뒤쪽 단이 위)
+    seat_cols = ["#58a0f0", "#ffb43a", "#58a0f0", "#ff6a6a"]
+    for t in range(3):
+        y0 = 40 + t * 30
+        s.rr(5, y0, W - 6, y0 + 9, c("#aeb8d8"), ol_of(c("#aeb8d8")), 1)              # 뒷 단의 앞면
+        s.rr(5, y0 + 8, W - 6, y0 + 20, c("#dfe5f6"), ol_of(c("#aeb8d8")), 1)          # 바닥(앉는 층)
+        for i, x in enumerate(range(8, W - 20, 16)):
+            col = c(seat_cols[(i + t) % 4])
+            s.rr(x, y0 + 9, x + 12, y0 + 19, col, ol_of(col), 2, hi=lighten(col, 0.45))
+        s.r(6, y0 + 20, W - 7, y0 + 29, c("#c4cce4"))                                   # 단 앞 기둥면
+        s.line((6, y0 + 20), (W - 7, y0 + 20), c("#e8ecfa"))
+    # 양옆 난간
+    for x0 in (0, W - 6):
+        s.rr(x0, 36, x0 + 5, H - 8, c("#8f9bc4"), ol_of(c("#8f9bc4")), 1)
+    # 차양 기둥
+    for x0 in (3, W - 5):
+        s.r(x0, 26, x0 + 1, H - 6, c("#6b7699"))
+    # 차양 (파랑/흰 줄무늬)
+    s.rr(0, 0, W - 1, 24, c("#ffffff"), ink, 4, hi=c("#ffffff"))
+    for x in range(0, W, 16):
+        s.r(x + 1, 2, x + 8, 22, c("#58a0f0"))
+        s.r(x + 1, 2, x + 8, 3, c("#9ad0ff"))
+    s.rr(0, 20, W - 1, 24, c("#3a6ac8"), ink, 1)
+    for x in range(0, W, 16):                                                           # 물결 모양 끝
+        s.ell(x + 1, 22, x + 14, 33, c("#ffffff") if (x // 16) % 2 else c("#58a0f0"), ink)
+    s.shadow(3, W - 4, 60)
+    return ret(s, w, d)
+
+
+def stairs(w=2, d=3):
+    """운동장에서 단상(본관 앞)으로 올라가는 계단. 걸어서 올라갈 수 있어요."""
+    W, H = w * T, d * T
+    s = S(W, H)
+    n = 4
+    sh = H // n
+    for i in range(n):
+        y0 = i * sh
+        s.rr(5, y0, W - 6, y0 + sh - 1, c("#cfcbe0"), c("#7a76a0"), 1)                 # 계단 앞면
+        s.rr(5, y0, W - 6, y0 + sh - 9, c("#f4f1fa"), None, 1, hi=c("#ffffff"))        # 밟는 면
+        s.r(6, y0 + sh - 10, W - 7, y0 + sh - 9, c("#ffd23a"))                         # 노란 안전선
+    for x0 in (0, W - 4):                                                               # 손잡이 난간
+        s.rr(x0, 0, x0 + 3, H - 1, c("#8f9bc4"), ol_of(c("#8f9bc4")), 1)
+        for yy in (6, H // 2, H - 8):
+            s.r(x0, yy, x0 + 3, yy + 2, c("#6b7699"))
+    return decor_ret(s, w, d)
+
+
+def podium(w=4, d=3):
+    """구령대: 운동장 앞 단상."""
+    W, H = w * T, 112
+    s = S(W, H + PAD)
+    conc, o = c("#d9d4e6"), c("#6f6a96")
+    # 앞 계단
+    for i in range(3):
+        s.rr(40 - i * 3, 92 + i * 6, W - 41 + i * 3, 97 + i * 6, c("#f4f1fa"), o, 1)
+        s.r(42 - i * 3, 92 + i * 6, W - 43 + i * 3, 92 + i * 6, c("#ffffff"))
+    # 단상 앞면
+    s.rr(4, 62, W - 5, 92, conc, o, 2)
+    for i in range(3):
+        x = 12 + i * 38
+        s.rr(x, 68, x + 30, 86, shade(conc, 0.93), shade(conc, 0.7), 1)
+    s.r(4, 88, W - 5, 91, shade(conc, 0.78))
+    # 단상 윗면
+    s.rr(4, 22, W - 5, 62, c("#f4eee2"), o, 3, hi=c("#ffffff"))
+    s.line((10, 28), (W - 11, 28), c("#e2d8c4"))
+    # 연설대
+    s.rr(54, 30, 74, 56, c("#c98a52"), ol_of(c("#c98a52")), 2, hi=c("#e8b078"))
+    s.r(58, 34, 70, 36, c("#e8b078"))
+    s.line((64, 29), (64, 24), c("#4a4a62")); s.ell(62, 21, 66, 25, c("#4a4a62"))
+    # 양쪽 깃발
+    for (x, flag) in ((16, "kr"), (W - 17, "sc")):
+        s.r(x, 2, x + 1, 50, c("#c8d0e4"))
+        s.ell(x - 1, 0, x + 2, 3, c("#ffd96a"))
+        if flag == "kr":
+            s.paste(taegukgi(22, 15), x + 2, 4)
+        else:
+            s.rr(x - 21, 4, x - 1, 19, c("#3f8a5a"), ol_of(c("#3f8a5a")), 1)
+            s.ell(x - 15, 8, x - 7, 16, c("#ffe68a"))
+    s.shadow(3, W - 4, 60)
+    return ret(s, w, d)
+
+
+def ctable(rows, top):
+    """급식실 긴 식탁: 양옆에 등받이 없는 둥근 의자가 붙어 있는 일체형."""
+    W, H = 4 * T, rows * T
+    s = S(W, H + 6 + PAD)
+    tcol = {"cream": "#f8f0dc", "mint": "#d8f6e6", "peach": "#ffe4d0"}[top]
+    t, to = c(tcol), c("#8a7a5a")
+    cols = ["#ee6a5a", "#ffc43a", "#58a0f0", "#79cc4a", "#ff8fb8", "#ff9a3c", "#a07ae0", "#4fd0b0"]
+    for r in range(rows):
+        cy = 10 + r * T + 6
+        for (cx, side) in ((16, -1), (W - 17, 1)):
+            x0 = 24 if side < 0 else W - 36
+            s.rr(x0, cy - 1, x0 + 11, cy + 3, c("#9aa3b8"), ol_of(c("#9aa3b8")), 1)        # 의자 팔
+            col = c(cols[(r + (0 if side < 0 else 3)) % len(cols)])
+            s.ell(cx - 10, cy - 7, cx + 10, cy + 11, shade(col, 0.78), ol_of(col))         # 의자 옆면
+            s.ell(cx - 10, cy - 9, cx + 10, cy + 7, col, ol_of(col))                       # 의자 윗면
+            s.ell(cx - 6, cy - 7, cx + 1, cy - 2, lighten(col, 0.5))
+    s.rr(34, 4, W - 35, H + 3, t, to, 4, hi=c("#ffffff"))                              # 식탁 윗면
+    s.rr(34, H - 4, W - 35, H + 5, shade(t, 0.82), to, 2)                              # 식탁 앞쪽 두께
+    s.r(36, H - 3, W - 37, H - 3, lighten(t, 0.3))
+    for r in range(rows):                                                                # 식판
+        if (r + (1 if top == "mint" else 0)) % 2 == 0:
+            y0 = 10 + r * T
+            s.rr(38, y0, 55, y0 + 12, c("#fdfbf4"), c("#a79bb8"), 2)
+            s.rr(40, y0 + 2, 46, y0 + 7, c("#ffffff"), c("#c0b8d0"), 1)
+            s.rr(48, y0 + 2, 53, y0 + 6, c("#ee5a4a"), None, 1)
+            s.rr(40, y0 + 8, 47, y0 + 10, c("#5cc27a"), None, 0)
+            s.rr(72, y0 + 4, 89, y0 + 16, c("#fdfbf4"), c("#a79bb8"), 2)
+            s.rr(74, y0 + 6, 80, y0 + 11, c("#ffffff"), c("#c0b8d0"), 1)
+            s.rr(82, y0 + 6, 87, y0 + 10, c("#ffb43a"), None, 1)
+    s.shadow(8, W - 9, 56)
+    return ret(s, 4, rows)
+
+
+def lintel(n):
+    """본관 입구 위에 걸린 간판 보."""
+    W, H = n * T, 30
+    s = S(W, H + PAD)
+    s.rr(0, 0, W - 1, 12, c("#a86a3c"), c("#4a2a14"), 3, hi=c("#e0a870"))
+    s.rr(2, 2, W - 3, 5, c("#c98a52"), None, 1)
+    for x in (W // 2 - 44, W // 2 + 44):                                              # 매다는 줄
+        s.r(x, 12, x + 1, 17, c("#6b7699"))
+    t = text_image("매홀중학교 본관", c("#fff6d0"), FONT11B, 11, outline=c("#5a3a20"))
+    pw = t.width + 18
+    s.rr((W - pw) // 2, 16, (W + pw) // 2, 29, c("#c98a52"), c("#4a2a14"), 4, hi=c("#e8b078"))
+    s.paste(t, (W - t.width) // 2, 18)
+    s.shadow(4, W - 5, 36)
+    return ret(s, n, 1, solid=False)
+
 
 
 def get_sprite(name):
@@ -1055,7 +1193,8 @@ def get_sprite(name):
               "bookcart": bookcart, "extinguisher": extinguisher, "cone": cone, "ball": ball,
               "hoop": hoop, "flagpole": flagpole, "flagstand": flagstand, "posterstand": posterstand,
               "signstone": signstone, "stage_6x3": lambda: stage(6, 3), "nook": lambda: nook(5, 2),
-              "mat_red": lambda: mat("red"), "mat_blue": lambda: mat("blue")}
+              "mat_red": lambda: mat("red"), "mat_blue": lambda: mat("blue"),
+              "stand_4x3": stand, "podium_4x3": podium, "stairs_2x3": stairs}
     if name in simple:
         return simple[name]()
     pats = [(r"table_(\d+)x(\d+)_(\w+?)(_tray)?", lambda m: table(int(m[1]), int(m[2]), m[3], bool(m[4]))),
@@ -1070,7 +1209,9 @@ def get_sprite(name):
             (r"bench_(\d+)", lambda m: bench(int(m[1]))),
             (r"benchc_(\d+)", lambda m: bench(int(m[1]), True)),
             (r"barcounter_(\d+)", lambda m: barcounter(int(m[1]))),
-            (r"libcounter_(\d+)", lambda m: libcounter(int(m[1])))]
+            (r"libcounter_(\d+)", lambda m: libcounter(int(m[1]))),
+            (r"ctable_(\d+)_(\w+)", lambda m: ctable(int(m[1]), m[2])),
+            (r"lintel_(\d+)", lambda m: lintel(int(m[1])))]
     for pat, fn in pats:
         m = re.fullmatch(pat, name)
         if m:
