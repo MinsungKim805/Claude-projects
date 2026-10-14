@@ -21,8 +21,7 @@ from PIL import Image, ImageDraw
 
 import chars
 import mapbuild
-import objects
-from pxlib import ROOT, hexc, shade, lighten, text_image, down2, FONT11B, FONT9
+from pxlib import ROOT, hexc, shade, lighten, text_image, FONT11B, FONT9
 
 A = os.path.join(ROOT, "assets")
 DATA = os.path.join(ROOT, "data")
@@ -68,21 +67,15 @@ def make_sprites():
 
 
 def make_objects(res):
-    """오브젝트 하나 = PNG 하나. 2배로 그린 그림을 게임 크기(칸 32px)로 줄여서 저장해요."""
+    """오브젝트 하나 = PNG 하나. (이름, 그림, 크기) 를 저장해요."""
     clean(os.path.join(A, "objects"))
     info = {}
     for n, sp in sorted(res["sprites"].items()):
         f = slug(n) + ".png"
-        im, pad = sp["img"], sp["pad"]
-        if im.width % 2 or im.height % 2:      # 홀수 크기면 오른쪽/아래쪽에 투명 한 줄을 붙여요
-            big = Image.new("RGBA", (im.width + im.width % 2, im.height + im.height % 2), (0, 0, 0, 0))
-            big.paste(im, (0, 0))
-            pad += im.height % 2
-            im = big
-        small = down2(im)
-        small.save(os.path.join(A, "objects", f))
-        info[n] = dict(file=f, w=sp["w"], d=sp["d"], pad=(pad + 1) // 2, solid=bool(sp["solid"]),
-                       decor=bool(sp.get("decor", False)), pw=small.width, ph=small.height)
+        im = sp["img"]
+        im.save(os.path.join(A, "objects", f))
+        info[n] = dict(file=f, w=sp["w"], d=sp["d"], pad=sp["pad"], solid=bool(sp["solid"]),
+                       decor=bool(sp.get("decor", False)), pw=im.width, ph=im.height)
     return info
 
 
@@ -145,13 +138,7 @@ def make_ui():
 
 def make_backgrounds(res):
     os.makedirs(os.path.join(A, "backgrounds"), exist_ok=True)
-    small = down2(res["bg"])
-    # 하얀 라인(운동장·체육관)은 따로 줄여서 얹어요. 반 칸이라도 걸치면 켜져서 선이 끊기지 않아요.
-    a = res["lines"].getchannel("A").resize((small.width, small.height), Image.BOX).point(lambda v: 255 if v >= 127 else 0)
-    line = Image.new("RGBA", small.size, hexc("#fbf6e8"))
-    line.putalpha(a)
-    small.alpha_composite(line)
-    small.convert("RGB").save(os.path.join(A, "backgrounds", "map.png"), optimize=True)
+    res["bg"].convert("RGB").save(os.path.join(A, "backgrounds", "map.png"), optimize=True)
     # 시작 화면: '메타 투어 매홀' 그림(tools/reference/title_ref.webp)을 1280x720으로 맞춰요.
     src = os.environ.get("TITLE_SRC") or os.path.join(ROOT, "tools", "reference", "title_ref.webp")
     if os.path.exists(src):

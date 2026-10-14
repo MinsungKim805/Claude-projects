@@ -1,4 +1,4 @@
-"""매홀중학교 큰 맵 빌더 (ZEP식 탑다운, 고해상도: 그림 타일 64px = 게임 칸 32px의 2배).
+"""매홀중학교 큰 맵 빌더 (ZEP식 탑다운, 32px 칸, 알록달록 귀여운 도트).
 
 운동장 → 복도 → 급식실 ↓ 복도 ↓ 체육관 ← 복도 ← 도서관 ↓ 복도 ↓ 교실(퀴즈 존)
 방에서 방으로 가는 통로(문)는 소개를 끝내야 열려요.
@@ -8,10 +8,9 @@
 import math
 from collections import deque
 from PIL import Image, ImageDraw
-from pxlib import hexc, shade, lighten, mix, hash2, text_image, FONT11B, FONT9
-from sp import TILE, ART
+from pxlib import hexc, shade, lighten, mix, hash2, text_image, ol_of, FONT11B, FONT9
 
-T = TILE                 # 그림 한 칸(픽셀)
+T = 32                   # 한 칸(픽셀)
 MAP_W, MAP_H = 66, 82    # 맵 크기(칸)
 
 # (id, 한글 이름, 바닥 테마, x, y, w, h)  칸 단위, 걸어다닐 수 있는 바닥
@@ -66,8 +65,8 @@ class Builder:
         self.objects.append((name, tx, ty))
 
     def dec(self, name, tx, ty, dx=0, dy=0):
-        """벽 장식 배치. (tx, ty)는 칸, dx/dy 는 그림 픽셀 단위 조정이에요."""
-        self.decor.append((name, int(tx * T + dx) & ~1, int(ty * T + dy) & ~1))   # 짝수 위치(줄일 때 글자가 안 깨져요)
+        """벽 장식 배치. (tx, ty)는 칸, dx/dy 는 픽셀 단위 조정이에요."""
+        self.decor.append((name, tx * T + dx // 2, ty * T + dy // 2))
 
     def is_floor(self, x, y):
         return 0 <= x < MAP_W and 0 <= y < MAP_H and self.floor[y][x]
@@ -99,149 +98,156 @@ class Builder:
         return None
 
 
-# ====================================================================== 바닥 질감
-def fill(d, X, Y, c):
-    d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=c)
+# ====================================================================== 바닥 그리기 (깔끔한 무늬 + 방마다 다른 색)
+def c(h):
+    return hexc(h)
 
 
-def speck(d, X, Y, tx, ty, cols, n, seed, w=1, h=1):
-    for k in range(n):
-        x = X + int(rnd(tx, ty, seed + k * 2) * (T - w))
-        y = Y + int(rnd(tx, ty, seed + k * 2 + 1) * (T - h))
-        d.rectangle([x, y, x + w - 1, y + h - 1], fill=cols[int(rnd(tx, ty, seed + 500 + k) * len(cols))])
+def fill(d, X, Y, col):
+    d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=col)
 
 
-def plank_rows(d, X, Y, tx, ty, base_cols, ph, seed, amt, plank_len, gloss=False, seam=None):
-    """가로로 긴 마루판. 전체 좌표를 기준으로 그려서 칸 경계에서도 이어져요."""
-    rows = T // ph
-    for r in range(rows):
-        R = (Y // ph) + r                      # 전체 맵에서의 판자 줄 번호
-        y0 = Y + r * ph
-        base = base_cols[int(rnd(R, seed, 1) * len(base_cols))]
-        d.rectangle([X, y0, X + T - 1, y0 + ph - 1], fill=base)
-        for yy in range(ph):
-            for i in range(X // 24, (X + T - 1) // 24 + 1):
-                f = 1 + (rnd(R, yy + seed, i) - 0.5) * 2 * amt
-                xs, xe = max(X, i * 24), min(X + T - 1, i * 24 + 23)
-                if xe >= xs:
-                    d.line([(xs, y0 + yy), (xe, y0 + yy)], fill=shade(base, f))
-        # 위쪽 하이라이트와 아래쪽 이음선
-        d.line([(X, y0), (X + T - 1, y0)], fill=lighten(base, 0.18))
-        d.line([(X, y0 + ph - 1), (X + T - 1, y0 + ph - 1)], fill=seam or shade(base, 0.72))
-        # 판자 끝 이음새(줄마다 위치가 달라요)
-        off = int(rnd(R, seed, 7) * plank_len)
-        for jx in range(-plank_len, MAP_W * T + plank_len, plank_len):
-            gx = jx + off
-            if X <= gx < X + T:
-                d.line([(gx, y0), (gx, y0 + ph - 1)], fill=seam or shade(base, 0.7))
-                d.line([(gx + 1, y0), (gx + 1, y0 + ph - 1)], fill=lighten(base, 0.12))
-        if gloss and rnd(R, seed, 9) > 0.55:        # 니스칠 반사광
-            gx0 = X + int(rnd(R, tx, 10) * 30)
-            d.line([(gx0, y0 + 3), (gx0 + 24, y0 + 3)], fill=lighten(base, 0.3))
+def draw_floor(d, th, tx, ty, X, Y, b=None):
+    _draw_floor(d, th, tx, ty, X, Y)
+    if th == "corridor" and b is not None:                 # 복도 가장자리: 민트색 안내 띠
+        for dx in (-1, 1):
+            if not b.is_floor(tx + dx, ty):
+                x0 = X + 1 if dx < 0 else X + T - 5
+                d.rectangle([x0, Y, x0 + 3, Y + T - 1], fill=c("#8adcc8"))
+                d.line([(x0 + (0 if dx < 0 else 3), Y), (x0 + (0 if dx < 0 else 3), Y + T - 1)], fill=c("#5cbca4"))
+                d.line([(x0 + (3 if dx < 0 else 0), Y), (x0 + (3 if dx < 0 else 0), Y + T - 1)], fill=c("#b8f0e0"))
 
 
-def draw_floor(d, th, tx, ty, X, Y):
-    if th == "sand":
-        base = hexc("#e9cd94") if (tx + ty) % 2 == 0 else hexc("#e7ca90")
-        fill(d, X, Y, base)
-        speck(d, X, Y, tx, ty, [hexc("#f6e4b8"), hexc("#d6b878"), hexc("#f0daa4")], 90, 1)
-        speck(d, X, Y, tx, ty, [hexc("#cba76a"), hexc("#fff0c8")], 26, 200, 2, 1)
-        if rnd(tx, ty, 99) > 0.7:                                          # 작은 돌멩이
-            px, py = X + int(rnd(tx, ty, 5) * 50) + 4, Y + int(rnd(tx, ty, 6) * 50) + 4
-            d.ellipse([px, py, px + 5, py + 3], fill=hexc("#b8a078"), outline=hexc("#8a7650"))
-            d.line([(px + 1, py + 1), (px + 3, py + 1)], fill=hexc("#d8c49a"))
-        if rnd(tx, ty, 98) > 0.93:                                         # 발자국 같은 긁힘
-            px, py = X + int(rnd(tx, ty, 7) * 40), Y + int(rnd(tx, ty, 8) * 50)
-            d.arc([px, py, px + 20, py + 10], 200, 340, fill=hexc("#d0b070"))
-    elif th == "corridor":
-        bx, by = tx // 2, ty // 2
-        big = (bx + by) % 2
-        dark_patch = rnd(bx, by, 3) > 0.74
-        if dark_patch:
-            base = hexc("#868a96")
+def _draw_floor(d, th, tx, ty, X, Y):
+    if th == "sand":                                       # 운동장: 연한 모래색 체크 + 작은 돌멩이
+        fill(d, X, Y, c("#f6dc98") if (tx + ty) % 2 == 0 else c("#f2d48c"))
+        if rnd(tx, ty, 1) > 0.72:
+            px, py = X + 4 + int(rnd(tx, ty, 2) * 22), Y + 4 + int(rnd(tx, ty, 3) * 22)
+            d.rectangle([px, py, px + 2, py + 1], fill=c("#dcb86a"))
+            d.point((px, py), fill=c("#ecd08a"))
+        if rnd(tx, ty, 4) > 0.9:                           # 풀 한 포기
+            px, py = X + 6 + int(rnd(tx, ty, 5) * 18), Y + 8 + int(rnd(tx, ty, 6) * 16)
+            d.line([(px, py), (px, py - 2)], fill=c("#6cc060"))
+            d.line([(px + 2, py), (px + 3, py - 3)], fill=c("#6cc060"))
+            d.line([(px - 2, py), (px - 3, py - 2)], fill=c("#4aa048"))
+    elif th == "corridor":                                 # 복도: 크림색 타일 + 군데군데 회색 타일
+        dark = rnd(tx // 2, ty, 3) > 0.74
+        if dark:
+            base = c("#a2a9c4")
+            fill(d, X, Y, base)
+            for k in range(7):
+                d.point((X + 3 + int(rnd(tx, ty, k) * 26), Y + 3 + int(rnd(tx, ty, k + 9) * 26)), fill=c("#c4cae0") if k % 2 else c("#8890ac"))
+            d.line([(X, Y + T - 1), (X + T - 1, Y + T - 1)], fill=c("#858ca8"))
+            d.line([(X + T - 1, Y), (X + T - 1, Y + T - 1)], fill=c("#858ca8"))
         else:
-            base = hexc("#e2ded4") if big == 0 else hexc("#d6d2cc")
+            base = c("#fbf3e2") if (tx + ty) % 2 == 0 else c("#f3e9d4")
+            fill(d, X, Y, base)
+            d.line([(X, Y + T - 1), (X + T - 1, Y + T - 1)], fill=c("#e2d6bc"))
+            d.line([(X + T - 1, Y), (X + T - 1, Y + T - 1)], fill=c("#e2d6bc"))
+    elif th == "beige":                                    # 급식실: 따뜻한 노란 체크 타일
+        base = c("#ffe9a8") if (tx + ty) % 2 == 0 else c("#ffdf94")
         fill(d, X, Y, base)
-        if dark_patch:
-            speck(d, X, Y, tx, ty, [hexc("#666a76"), hexc("#a4a8b2"), hexc("#727682"), hexc("#bcc0ca")], 300, 1)
+        d.line([(X, Y + T - 1), (X + T - 1, Y + T - 1)], fill=c("#f0c26e"))
+        d.line([(X + T - 1, Y), (X + T - 1, Y + T - 1)], fill=c("#f0c26e"))
+    elif th == "carpet":                                   # 도서관: 보랏빛 카펫
+        base = c("#bca6e0") if (tx + ty) % 2 == 0 else c("#b49ddb")
+        fill(d, X, Y, base)
+        for (ox, oy) in ((8, 8), (24, 8), (8, 24), (24, 24)):
+            d.point((X + ox, Y + oy), fill=c("#cdbcee"))
+            d.point((X + ox - 1, Y + oy), fill=c("#a58cd0"))
+        d.line([(X, Y), (X + T - 1, Y)], fill=c("#c6b2e8"))
+        d.line([(X, Y), (X, Y + T - 1)], fill=c("#c6b2e8"))
+    elif th in ("wood", "plank"):                          # 체육관/교실: 시원한 마루
+        if th == "wood":
+            cols = [c("#f9cd78"), c("#f4c46c"), c("#fcd685")]
+            seam = c("#dc9a44")
         else:
-            speck(d, X, Y, tx, ty, [shade(base, 0.94), lighten(base, 0.2), shade(base, 0.88)], 40, 1)
-        if tx % 2 == 0:                                                   # 타일 경계(줄눈)
-            d.line([(X, Y), (X, Y + T - 1)], fill=shade(base, 0.8))
-            d.line([(X + 1, Y), (X + 1, Y + T - 1)], fill=lighten(base, 0.22))
-        if ty % 2 == 0:
-            d.line([(X, Y), (X + T - 1, Y)], fill=shade(base, 0.8))
-            d.line([(X, Y + 1), (X + T - 1, Y + 1)], fill=lighten(base, 0.22))
-        if not dark_patch and rnd(tx, ty, 21) > 0.6:                       # 광택 줄
-            d.line([(X + 10, Y + 40), (X + 34, Y + 22)], fill=lighten(base, 0.3))
-    elif th == "beige":
-        base = hexc("#efd8a4") if (tx + ty) % 2 == 0 else hexc("#ebd29a")
-        fill(d, X, Y, base)
-        speck(d, X, Y, tx, ty, [shade(base, 0.95), lighten(base, 0.2)], 24, 1)
-        d.line([(X, Y + T - 1), (X + T - 1, Y + T - 1)], fill=hexc("#cfb57a"))
-        d.line([(X + T - 1, Y), (X + T - 1, Y + T - 1)], fill=hexc("#cfb57a"))
-        d.line([(X, Y + T - 2), (X + T - 2, Y + T - 2)], fill=hexc("#dcc48c"))
-        d.line([(X, Y), (X + T - 3, Y)], fill=lighten(base, 0.45))
-        d.line([(X, Y), (X, Y + T - 3)], fill=lighten(base, 0.3))
-        if rnd(tx, ty, 31) > 0.7:                                          # 광택 반사
-            d.line([(X + 8, Y + 36), (X + 30, Y + 12)], fill=lighten(base, 0.5), width=2)
-    elif th == "carpet":
-        base = hexc("#8c777a") if (tx + ty) % 2 == 0 else hexc("#8a7578")
-        fill(d, X, Y, base)
-        speck(d, X, Y, tx, ty, [shade(base, 0.92), lighten(base, 0.1), shade(base, 0.85), lighten(base, 0.18)], 340, 1)
-        for k in range(0, T, 8):                                           # 카펫 짜임
-            d.line([(X, Y + k), (X + T - 1, Y + k)], fill=shade(base, 0.965))
-        for k in range(0, T, 8):
-            d.line([(X + k, Y), (X + k, Y + T - 1)], fill=shade(base, 0.975))
-    elif th == "wood":     # 체육관: 밝은 니스칠 마루
-        plank_rows(d, X, Y, tx, ty, [hexc("#e0aa62"), hexc("#d9a15a"), hexc("#e4b06c"), hexc("#d89f58")], 16, 3, 0.05, 192, gloss=True)
-    elif th == "plank":    # 교실: 따뜻한 갈색 마루판
-        plank_rows(d, X, Y, tx, ty, [hexc("#d89f67"), hexc("#c7955d"), hexc("#d0995f"), hexc("#bf8c56")], 16, 17, 0.06, 224)
+            cols = [c("#f8dca4"), c("#f2d198"), c("#fbe4b4")]
+            seam = c("#dcac70")
+        for r in range(4):
+            R = ty * 4 + r
+            y0 = Y + r * 8
+            base = cols[int(rnd(R, 7, 1) * 3)]
+            d.rectangle([X, y0, X + T - 1, y0 + 7], fill=base)
+            d.line([(X, y0), (X + T - 1, y0)], fill=lighten(base, 0.35))
+            d.line([(X, y0 + 7), (X + T - 1, y0 + 7)], fill=seam)
+            for jx in range(-64, MAP_W * T, 64):             # 판자 끝 이음새
+                gx = jx + int(rnd(R, 9, 2) * 64)
+                if X <= gx < X + T:
+                    d.line([(gx, y0 + 1), (gx, y0 + 6)], fill=seam)
     else:
-        fill(d, X, Y, hexc("#cccccc"))
+        fill(d, X, Y, c("#cccccc"))
 
 
-# ====================================================================== 벽 질감
-def draw_brick(d, X, Y, w, h, base, mortar, gx, gy, bw=32, bh=16, var=0.1):
-    d.rectangle([X, Y, X + w - 1, Y + h - 1], fill=mortar)
-    for ry in range(0, h, bh):
+# ====================================================================== 벽 그리기 (방마다 다른 색)
+def draw_brick(d, X, Y, base, mortar, gx, gy, bw=16, bh=8, var=0.07):
+    d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=mortar)
+    for ry in range(0, T, bh):
         row = (gy + ry) // bh
         off = (bw // 2) if row % 2 else 0
         x = -off
-        while x < w:
+        while x < T:
             col = (gx + x + off) // bw
             v = 1 + (rnd(col, row, 4) - 0.5) * 2 * var
-            c = shade(base, v)
-            x0, x1 = max(0, x + 1), min(w - 1, x + bw - 2)
+            cc = shade(base, v)
+            x0, x1 = max(0, x + 1), min(T - 1, x + bw - 1)
             if x1 >= x0:
-                d.rectangle([X + x0, Y + ry + 1, X + x1, Y + ry + bh - 3], fill=c)
-                d.line([(X + x0, Y + ry + 1), (X + x1, Y + ry + 1)], fill=lighten(c, 0.24))     # 윗면 빛
-                d.line([(X + x0, Y + ry + bh - 3), (X + x1, Y + ry + bh - 3)], fill=shade(c, 0.78))  # 아랫면 그늘
-                if x - 0 >= 0:
-                    d.line([(X + x0, Y + ry + 1), (X + x0, Y + ry + bh - 3)], fill=lighten(c, 0.1))
-                if rnd(col, row, 9) > 0.7:                                                      # 벽돌 얼룩
-                    px = X + x0 + int(rnd(col, row, 11) * max(1, x1 - x0 - 4))
-                    d.rectangle([px, Y + ry + 5, px + 3, Y + ry + 6], fill=shade(c, 0.88))
+                d.rectangle([X + x0, Y + ry + 1, X + x1, Y + ry + bh - 1], fill=cc)
+                d.line([(X + x0, Y + ry + 1), (X + x1, Y + ry + 1)], fill=lighten(cc, 0.22))
+                d.line([(X + x0, Y + ry + bh - 1), (X + x1, Y + ry + bh - 1)], fill=shade(cc, 0.86))
             x += bw
 
 
+# kind: 벽 종류 / up: 윗벽 색 / lo: 아랫벽(허리 아래) 색 / style: 아랫벽 무늬
 THEMES = {
     "playground": dict(kind="facade"),
-    "cafeteria": dict(kind="cream_brick", cream="#f6e2b0", brick="#cf8660"),
-    "gym": dict(kind="cream_wood", cream="#f6e0aa", wood="#a8703c"),
-    "library": dict(kind="plaster", cream="#d9ceb8", base="#8a7a68"),
-    "classroom": dict(kind="plaster", cream="#d9c8a8", base="#a8896a"),
+    "cafeteria": dict(kind="paint", up="#fff1c4", lo="#ffa85a", style="tile"),
+    "gym": dict(kind="paint", up="#fff0cc", lo="#e39a5a", style="wood"),
+    "library": dict(kind="paint", up="#f2e8ff", lo="#c8b0ec", style="panel"),
+    "classroom": dict(kind="paint", up="#e2f8e8", lo="#f0b878", style="wood"),
     "corridor": dict(kind="brick"),
 }
+CAP = "#4a4478"
 
 
 def theme_of(room):
     return THEMES.get(room, THEMES["corridor"])
 
 
-def vgrad(d, X, Y, w, h, c1, c2):
-    for i in range(h):
-        d.line([(X, Y + i), (X + w - 1, Y + i)], fill=mix(c1, c2, i / max(1, h - 1)))
+def draw_cap(d, b, x, y, X, Y, facade):
+    if facade and not b.is_floor(x, y + 3):                       # 운동장 둘레: 동글동글 생울타리
+        d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=c("#3f9a52"))
+        for i in range(9):
+            cx = X + 3 + int(rnd(x, y, i) * 26)
+            cy = Y + 3 + int(rnd(x, y, i + 20) * 26)
+            r = 5 + int(rnd(x, y, i + 40) * 3)
+            d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=[c("#4cb860"), c("#5cc870"), c("#46ae5a")][i % 3], outline=c("#2f8a46"))
+        for i in range(6):
+            cx = X + 2 + int(rnd(x, y, i + 60) * 27)
+            cy = Y + 2 + int(rnd(x, y, i + 80) * 27)
+            d.rectangle([cx, cy, cx + 1, cy], fill=c("#9ae88a"))
+        if rnd(x, y, 99) > 0.8:                                    # 꽃
+            fx, fy = X + 6 + int(rnd(x, y, 98) * 20), Y + 6 + int(rnd(x, y, 97) * 20)
+            d.rectangle([fx, fy, fx + 1, fy + 1], fill=c("#ff9ac0"))
+        return
+    d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=c(CAP))
+    if facade and b.is_floor(x, y + 3):                           # 본관 지붕
+        d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=c("#7d8ac0"))
+        for ix in range(0, T, 8):
+            d.line([(X + ix, Y + 2), (X + ix, Y + T - 9)], fill=c("#6c78b0"))
+        d.rectangle([X, Y + T - 8, X + T - 1, Y + T - 1], fill=c("#5a66a0"))
+        d.line([(X, Y), (X + T - 1, Y)], fill=c("#a6b2e4"))
+        d.line([(X, Y + T - 9), (X + T - 1, Y + T - 9)], fill=c("#98a4d8"))
+        return
+    d.line([(X, Y), (X + T - 1, Y)], fill=c("#6a64a0"))
+    d.line([(X, Y + 1), (X + T - 1, Y + 1)], fill=c("#5a5490"))
+    for (dx, dy, rect) in ((1, 0, [X + T - 3, Y, X + T - 1, Y + T - 1]), (-1, 0, [X, Y, X + 2, Y + T - 1]),
+                           (0, 1, [X, Y + T - 3, X + T - 1, Y + T - 1]), (0, -1, [X, Y, X + T - 1, Y + 2])):
+        nx, ny = x + dx, y + dy
+        if b.is_floor(nx, ny):
+            d.rectangle(rect, fill=c("#33305a"))
+        elif b.kind(nx, ny) == "void":
+            d.rectangle(rect, fill=c("#3a3668"))
 
 
 def draw_wall(d, b, x, y, kind, X, Y):
@@ -249,95 +255,54 @@ def draw_wall(d, b, x, y, kind, X, Y):
     th = theme_of(room)
     k = th["kind"]
     if kind == "cap":
-        hedge = k == "facade" and not b.is_floor(x, y + 3)
-        if hedge:                                                          # 운동장 둘레 생울타리
-            d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=hexc("#2f6e38"))
-            greens = [hexc("#3d8044"), hexc("#4f984f"), hexc("#62ae58"), hexc("#2f6a36")]
-            for i in range(14):
-                cx = X + int(rnd(x, y, i) * 60) + 2
-                cy = Y + int(rnd(x, y, i + 20) * 60) + 2
-                r = 6 + int(rnd(x, y, i + 40) * 6)
-                d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=greens[i % 4], outline=shade(hexc("#2f6a36"), 0.8))
-            for i in range(26):
-                cx = X + int(rnd(x, y, i + 60) * 62)
-                cy = Y + int(rnd(x, y, i + 80) * 62)
-                d.rectangle([cx, cy, cx + 2, cy + 1], fill=hexc("#a6e07c"))
-            return
-        base = hexc("#5b4650")
-        d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=base)
-        for i in range(30):
-            d.point((X + int(rnd(x, y, i) * 64), Y + int(rnd(x, y, i + 50) * 64)), fill=[hexc("#6a5460"), hexc("#4a3640")][i % 2])
-        d.rectangle([X, Y, X + T - 1, Y + 3], fill=hexc("#7a6270"))
-        d.line([(X, Y + 4), (X + T - 1, Y + 4)], fill=hexc("#6a5462"))
-        if k == "facade" and b.is_floor(x, y + 3):                         # 본관 지붕 선
-            d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=hexc("#6a7288"))
-            for ix in range(0, T, 16):
-                d.line([(X + ix, Y), (X + ix, Y + T - 12)], fill=hexc("#5a627a"))
-            d.rectangle([X, Y + T - 12, X + T - 1, Y + T - 1], fill=hexc("#4a5268"))
-            d.rectangle([X, Y, X + T - 1, Y + 4], fill=hexc("#9aa2b8"))
-            d.line([(X, Y + T - 12), (X + T - 1, Y + T - 12)], fill=hexc("#7a82a0"))
-        for (dx, dy, rect) in ((1, 0, [X + T - 6, Y, X + T - 1, Y + T - 1]), (-1, 0, [X, Y, X + 5, Y + T - 1]),
-                               (0, -1, [X, Y, X + T - 1, Y + 5]), (0, 1, [X, Y + T - 6, X + T - 1, Y + T - 1])):
-            if b.is_floor(x + dx, y + dy):
-                d.rectangle(rect, fill=hexc("#3a2c34"))
+        draw_cap(d, b, x, y, X, Y, k == "facade")
         return
     low = kind == "face_low"
     if k == "facade":
-        draw_brick(d, X, Y, T, T, hexc("#cf7a54"), hexc("#e6b698"), x * T, y * T, var=0.07)
+        draw_brick(d, X, Y, c("#e88a62"), c("#f8c8a8"), x * T, y * T)
         if low:
-            d.rectangle([X, Y + T - 6, X + T - 1, Y + T - 1], fill=hexc("#8a6a5a"))
-            d.line([(X, Y + T - 6), (X + T - 1, Y + T - 6)], fill=hexc("#b8907a"))
+            d.rectangle([X, Y + T - 4, X + T - 1, Y + T - 1], fill=c("#b8685a"))
+            d.line([(X, Y + T - 4), (X + T - 1, Y + T - 4)], fill=c("#d8907a"))
     elif k == "brick":
-        draw_brick(d, X, Y, T, T, hexc("#c47a5e"), hexc("#e4b898"), x * T, y * T, var=0.09)
+        draw_brick(d, X, Y, c("#e8946a"), c("#fcd2b0"), x * T, y * T)
         if low:
-            d.rectangle([X, Y + T - 8, X + T - 1, Y + T - 1], fill=hexc("#3a2c30"))      # 걸레받이
-            d.line([(X, Y + T - 8), (X + T - 1, Y + T - 8)], fill=hexc("#6a5a5e"))
-            d.line([(X, Y + T - 7), (X + T - 1, Y + T - 7)], fill=hexc("#4a3a40"))
-    elif k == "cream_brick":
-        cream = hexc(th["cream"])
-        if low:
-            draw_brick(d, X, Y, T, T, hexc(th["brick"]), hexc("#e8c8a8"), x * T, y * T, var=0.08)
-            d.rectangle([X, Y, X + T - 1, Y + 3], fill=hexc("#8a5a42"))
-            d.line([(X, Y + 4), (X + T - 1, Y + 4)], fill=hexc("#b07a5e"))
-            d.rectangle([X, Y + T - 6, X + T - 1, Y + T - 1], fill=hexc("#5a3e30"))
-        else:
-            vgrad(d, X, Y, T, T, lighten(cream, 0.08), cream)
-            d.line([(X, Y + T - 1), (X + T - 1, Y + T - 1)], fill=shade(cream, 0.88))
-            speck(d, X, Y, x, y, [shade(cream, 0.96), lighten(cream, 0.2)], 14, 3)
-    elif k == "cream_wood":
-        cream, wood = hexc(th["cream"]), hexc(th["wood"])
-        if low:
-            d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=wood)
-            for xx in range(0, T, 16):                                    # 세로 판자 벽
-                c = shade(wood, 0.94 + 0.1 * rnd(x, xx, 3))
-                d.rectangle([X + xx, Y + 8, X + xx + 14, Y + T - 7], fill=c)
-                d.line([(X + xx + 15, Y + 8), (X + xx + 15, Y + T - 7)], fill=shade(wood, 0.68))
-                d.line([(X + xx, Y + 8), (X + xx, Y + T - 7)], fill=lighten(wood, 0.2))
-                for gy in range(Y + 12, Y + T - 8, 6):
-                    d.line([(X + xx + 3, gy), (X + xx + 3 + int(rnd(x, xx, gy) * 8), gy)], fill=shade(c, 0.88))
-            d.rectangle([X, Y, X + T - 1, Y + 7], fill=lighten(wood, 0.28))
-            d.line([(X, Y + 8), (X + T - 1, Y + 8)], fill=shade(wood, 0.6))
-            d.rectangle([X, Y + T - 6, X + T - 1, Y + T - 1], fill=shade(wood, 0.55))
-        else:
-            vgrad(d, X, Y, T, T, lighten(cream, 0.1), cream)
-    elif k == "plaster":
-        cream, basec = hexc(th["cream"]), hexc(th["base"])
-        vgrad(d, X, Y, T, T, lighten(cream, 0.07) if not low else cream, cream if not low else shade(cream, 0.93))
-        speck(d, X, Y, x, y, [shade(cream, 0.96), lighten(cream, 0.18)], 20, 3)
-        if (x * 1) % 4 == 0:                                              # 패널 이음
-            d.line([(X, Y), (X, Y + T - 1)], fill=shade(cream, 0.9))
-            d.line([(X + 1, Y), (X + 1, Y + T - 1)], fill=lighten(cream, 0.2))
-        if low:
-            d.rectangle([X, Y + T - 12, X + T - 1, Y + T - 1], fill=basec)           # 걸레받이
-            d.line([(X, Y + T - 12), (X + T - 1, Y + T - 12)], fill=lighten(basec, 0.3))
-            d.line([(X, Y + T - 11), (X + T - 1, Y + T - 11)], fill=shade(basec, 0.8))
-            d.rectangle([X, Y + T - 3, X + T - 1, Y + T - 1], fill=shade(basec, 0.6))
+            d.rectangle([X, Y + T - 5, X + T - 1, Y + T - 1], fill=c("#6a5070"))          # 걸레받이
+            d.line([(X, Y + T - 5), (X + T - 1, Y + T - 5)], fill=c("#8a7090"))
     else:
-        d.rectangle([X, Y, X + T - 1, Y + T - 1], fill=hexc("#d9c8a8"))
+        up, lo = c(th["up"]), c(th["lo"])
+        for i in range(T):                                          # 윗벽: 위쪽이 살짝 밝은 색
+            d.line([(X, Y + i), (X + T - 1, Y + i)], fill=mix(lighten(up, 0.12), up, i / T) if not low else up)
+        if not low:
+            d.line([(X, Y), (X + T - 1, Y)], fill=shade(up, 0.82))
+        if x % 4 == 0:                                              # 벽 패널 이음
+            d.line([(X, Y), (X, Y + T - 1)], fill=shade(up, 0.93))
+        if low:
+            rail = 12
+            d.line([(X, Y + rail), (X + T - 1, Y + rail)], fill=lighten(lo, 0.55))
+            d.line([(X, Y + rail + 1), (X + T - 1, Y + rail + 1)], fill=shade(lo, 0.7))
+            d.rectangle([X, Y + rail + 2, X + T - 1, Y + T - 1], fill=lo)
+            st = th["style"]
+            if st == "tile":                                        # 주황 타일
+                for gx in range(0, T, 8):
+                    d.line([(X + gx, Y + rail + 2), (X + gx, Y + T - 1)], fill=shade(lo, 0.86))
+                for gy in range(rail + 2, T, 8):
+                    d.line([(X, Y + gy), (X + T - 1, Y + gy)], fill=shade(lo, 0.86))
+                    d.line([(X + 1, Y + gy + 1), (X + 3, Y + gy + 1)], fill=lighten(lo, 0.4))
+            elif st == "wood":                                      # 세로 판자
+                for gx in range(0, T, 8):
+                    d.line([(X + gx, Y + rail + 2), (X + gx, Y + T - 1)], fill=shade(lo, 0.78))
+                    d.line([(X + gx + 1, Y + rail + 2), (X + gx + 1, Y + T - 1)], fill=lighten(lo, 0.22))
+            else:                                                   # 패널
+                for gx in range(0, T, 16):
+                    d.rectangle([X + gx + 2, Y + rail + 4, X + gx + 13, Y + T - 7], outline=shade(lo, 0.84))
+                    d.line([(X + gx + 3, Y + rail + 5), (X + gx + 12, Y + rail + 5)], fill=lighten(lo, 0.3))
+            d.rectangle([X, Y + T - 4, X + T - 1, Y + T - 1], fill=shade(lo, 0.62))          # 걸레받이
+            d.line([(X, Y + T - 4), (X + T - 1, Y + T - 4)], fill=lighten(lo, 0.1))
 
 
+# ====================================================================== 전체 배경 그리기
 def render_bg(b):
-    bg = Image.new("RGBA", (MAP_W * T, MAP_H * T), hexc("#1c1626"))
+    bg = Image.new("RGBA", (MAP_W * T, MAP_H * T), c("#1f1c3e"))
     d = ImageDraw.Draw(bg)
     for y in range(MAP_H):
         for x in range(MAP_W):
@@ -346,32 +311,32 @@ def render_bg(b):
             if kd == "void":
                 continue
             if kd == "floor":
-                draw_floor(d, b.theme[y][x], x, y, X, Y)
+                draw_floor(d, b.theme[y][x], x, y, X, Y, b)
             else:
                 draw_wall(d, b, x, y, kd, X, Y)
-    # 벽 바로 아래 그림자(부드럽게)와 창문 빛
+    paint_rugs(bg, d, b)
+    # 벽 아래 부드러운 그림자
     sh = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     ds = ImageDraw.Draw(sh)
     for y in range(MAP_H):
         for x in range(MAP_W):
             if b.is_floor(x, y) and not b.is_floor(x, y - 1):
-                for i in range(16):
-                    ds.rectangle([x * T, y * T + i, x * T + T - 1, y * T + i], fill=(40, 20, 40, int(64 - i * 4)))
+                for i in range(7):
+                    ds.rectangle([x * T, y * T + i, x * T + T - 1, y * T + i], fill=(50, 30, 90, int(58 - i * 8)))
             if b.is_floor(x, y) and not b.is_floor(x - 1, y):
-                for i in range(8):
-                    ds.rectangle([x * T + i, y * T, x * T + i, y * T + T - 1], fill=(40, 20, 40, int(36 - i * 4.5)))
+                for i in range(4):
+                    ds.rectangle([x * T + i, y * T, x * T + i, y * T + T - 1], fill=(50, 30, 90, int(34 - i * 8)))
     bg.alpha_composite(sh)
-    # 창문에서 들어오는 햇빛
+    # 창문에서 들어오는 햇빛 (바닥 위에만)
     light = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     dl = ImageDraw.Draw(light)
     for (name, px, py) in b.decor:
         if name.startswith("window_") and "glass" not in name:
             n = int(name.split("_")[1])
-            wx0, wx1 = px + 10, px + n * T - 10
-            fy = (py // T + 2 + 1) * T + 4          # 창 바로 아래 바닥 시작
-            dl.polygon([(wx0, fy), (wx1, fy), (wx1 + 90, fy + 230), (wx0 + 90, fy + 230)], fill=(255, 244, 200, 26))
-            dl.polygon([(wx0 + 14, fy), (wx1 - 14, fy), (wx1 + 70, fy + 210), (wx0 + 104, fy + 210)], fill=(255, 250, 220, 16))
-    # 햇빛은 바닥 위에만 비치게 잘라요(벽 위로 번지지 않게)
+            wx0, wx1 = px + 5, px + n * T - 5
+            fy = (py // T + 3) * T
+            dl.polygon([(wx0, fy), (wx1, fy), (wx1 + 40, fy + 110), (wx0 + 40, fy + 110)], fill=(255, 252, 214, 40))
+            dl.polygon([(wx0 + 8, fy), (wx1 - 8, fy), (wx1 + 28, fy + 100), (wx0 + 48, fy + 100)], fill=(255, 255, 230, 26))
     fmask = Image.new("L", bg.size, 0)
     dm = ImageDraw.Draw(fmask)
     for y in range(MAP_H):
@@ -381,70 +346,91 @@ def render_bg(b):
     light.putalpha(Image.composite(light.getchannel("A"), Image.new("L", bg.size, 0), fmask))
     bg.alpha_composite(light)
     d = ImageDraw.Draw(bg)
-    lines = paint_markings(bg, d, b)
-    return bg, lines
+    paint_markings(bg, d, b)
+    return bg
+
+
+def rug(bg, tx, ty, w, h, base, edge, dot):
+    """바닥에 깔린 동글동글한 러그."""
+    d = ImageDraw.Draw(bg)
+    x0, y0, x1, y1 = tx * T + 2, ty * T + 2, (tx + w) * T - 3, (ty + h) * T - 3
+    d.rounded_rectangle([x0, y0, x1, y1], 8, fill=ol_of(c(edge), 0.9))
+    d.rounded_rectangle([x0 + 1, y0 + 1, x1 - 1, y1 - 1], 7, fill=c(edge))
+    d.rounded_rectangle([x0 + 5, y0 + 5, x1 - 5, y1 - 5], 5, fill=c(base))
+    for xx in range(x0 + 12, x1 - 8, 12):
+        for yy in (y0 + 8, y1 - 9):
+            d.rectangle([xx, yy, xx + 2, yy + 1], fill=c(dot))
+
+
+def paint_rugs(bg, d, b):
+    rug(bg, 8, 37, 7, 6, "#f4b6d0", "#e888b0", "#ffe0ee")          # 도서관: 탁자마다 다른 색 러그
+    rug(bg, 15, 40, 5, 5, "#a8e4d0", "#5cc0a0", "#e0fff4")
+    rug(bg, 21, 40, 5, 5, "#ffe08a", "#f0b83a", "#fff4c8")
 
 
 def paint_markings(bg, d, b):
-    """바닥에 그려지는 표시들(운동장 라인, 농구 코트, 퀴즈 존 매트, 복도 화살표).
-    하얀 라인은 따로 투명 그림(lines)에 그려요. 줄일 때 끊기지 않게 나중에 얹어요."""
-    lines = Image.new("RGBA", bg.size, (0, 0, 0, 0))
-    dl = ImageDraw.Draw(lines)
-    white = hexc("#fbf6e8")
-    wl = lambda col=white: dict(fill=col)
+    """바닥 표시(운동장 라인, 농구 코트, 퀴즈 존 매트, 복도 화살표)."""
+    white = c("#fffdf2")
+    ov = Image.new("RGBA", bg.size, (0, 0, 0, 0))
+    do = ImageDraw.Draw(ov)
 
-    def rect_line(x0, y0, x1, y1, w=4, col=white):
+    def rect_line(x0, y0, x1, y1, w=2):
         for o in range(w):
-            dl.rectangle([x0 + o, y0 + o, x1 - o, y1 - o], outline=col)
+            d.rectangle([x0 + o, y0 + o, x1 - o, y1 - o], outline=white)
 
     # ---- 운동장: 축구장 라인
     x0, y0, x1, y1 = 4 * T, 5 * T, 24 * T, 17 * T
     rect_line(x0, y0, x1, y1)
-    dl.line([((x0 + x1) // 2, y0), ((x0 + x1) // 2, y1)], fill=white, width=4)
     cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
-    dl.ellipse([cx - 88, cy - 88, cx + 88, cy + 88], outline=white, width=4)
-    dl.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], fill=white)
-    rect_line(x0, cy - 112, x0 + 140, cy + 112, 4)
-    rect_line(x1 - 140, cy - 112, x1, cy + 112, 4)
-    rect_line(x0, cy - 56, x0 + 56, cy + 56, 4)
-    rect_line(x1 - 56, cy - 56, x1, cy + 56, 4)
-    # ---- 체육관: 농구 코트 (x 45..57, y 36..49)
+    d.line([(cx, y0), (cx, y1)], fill=white, width=2)
+    d.ellipse([cx - 44, cy - 44, cx + 44, cy + 44], outline=white, width=2)
+    d.ellipse([cx - 3, cy - 3, cx + 3, cy + 3], fill=white)
+    rect_line(x0, cy - 56, x0 + 70, cy + 56)
+    rect_line(x1 - 70, cy - 56, x1, cy + 56)
+    rect_line(x0, cy - 28, x0 + 28, cy + 28)
+    rect_line(x1 - 28, cy - 28, x1, cy + 28)
+    # ---- 체육관: 농구 코트 (x 45..57, y 36..49), 페인트 구역은 색칠
     gx0, gy0, gx1, gy1 = 45 * T, 36 * T, 57 * T, 49 * T
-    rect_line(gx0, gy0, gx1, gy1, 4)
     gcx, gcy = (gx0 + gx1) // 2, (gy0 + gy1) // 2
-    dl.line([(gx0, gcy), (gx1, gcy)], fill=white, width=4)
-    dl.ellipse([gcx - 60, gcy - 60, gcx + 60, gcy + 60], outline=white, width=4)
+    do.rectangle([gcx - 2 * T, gy0, gcx + 2 * T, gy0 + 4 * T], fill=(70, 168, 255, 175))
+    do.rectangle([gcx - 2 * T, gy1 - 4 * T, gcx + 2 * T, gy1], fill=(255, 96, 110, 150))
+    do.ellipse([gcx - 30, gcy - 30, gcx + 30, gcy + 30], fill=(255, 236, 110, 140))
+    bg.alpha_composite(ov)
+    d = ImageDraw.Draw(bg)
+    rect_line(gx0, gy0, gx1, gy1)
+    d.line([(gx0, gcy), (gx1, gcy)], fill=white, width=2)
+    d.ellipse([gcx - 30, gcy - 30, gcx + 30, gcy + 30], outline=white, width=2)
     for (ya, yb, up) in ((gy0, gy0 + 4 * T, True), (gy1 - 4 * T, gy1, False)):
-        dl.rectangle([gcx - 2 * T, ya, gcx + 2 * T, yb], outline=white, width=4)
+        d.rectangle([gcx - 2 * T, ya, gcx + 2 * T, yb], outline=white, width=2)
         ry = yb if up else ya
-        dl.arc([gcx - 96, ry - 96, gcx + 96, ry + 96], 0 if up else 180, 180 if up else 360, fill=white, width=4)
+        d.arc([gcx - 48, ry - 48, gcx + 48, ry + 48], 0 if up else 180, 180 if up else 360, fill=white, width=2)
     # ---- 교실: 퀴즈 존 매트 (x 12..21, y 72..75)
     qx0, qy0, qx1, qy1 = 12 * T, 72 * T, 22 * T, 76 * T
-    d.rounded_rectangle([qx0, qy0, qx1 - 1, qy1 - 1], 14, fill=hexc("#f6c24a"))
-    d.rounded_rectangle([qx0 + 8, qy0 + 8, qx1 - 9, qy1 - 9], 10, fill=hexc("#fff0b4"), outline=hexc("#e08a2a"), width=3)
-    for xx in range(qx0 + 22, qx1 - 30, 28):
-        d.rectangle([xx, qy0 + 16, xx + 12, qy0 + 19], fill=hexc("#f2b43a"))
-        d.rectangle([xx + 14, qy1 - 20, xx + 26, qy1 - 17], fill=hexc("#f2b43a"))
-    for (cxx, cyy) in ((qx0 + 24, qy0 + 24), (qx1 - 24, qy0 + 24), (qx0 + 24, qy1 - 24), (qx1 - 24, qy1 - 24)):
-        d.ellipse([cxx - 6, cyy - 6, cxx + 6, cyy + 6], fill=hexc("#f2b43a"), outline=hexc("#e08a2a"))
-    t = text_image("QUIZ ZONE", hexc("#d9602a"), FONT11B, 11)
-    t = t.resize((t.width * 3, t.height * 3), Image.NEAREST)
-    bg.alpha_composite(t, (((qx0 + qx1) // 2 - t.width // 2) & ~1, (qy0 + 26) & ~1))
-    t2 = text_image("퀴즈 존", hexc("#b8451a"), FONT11B, 11)
-    t2 = t2.resize((t2.width * 2, t2.height * 2), Image.NEAREST)
-    bg.alpha_composite(t2, (((qx0 + qx1) // 2 - t2.width // 2) & ~1, (qy1 - 56) & ~1))
+    d.rounded_rectangle([qx0, qy0, qx1 - 1, qy1 - 1], 10, fill=c("#ee9a2a"))
+    d.rounded_rectangle([qx0 + 1, qy0 + 1, qx1 - 2, qy1 - 2], 9, fill=c("#ffc83a"))
+    d.rounded_rectangle([qx0 + 6, qy0 + 6, qx1 - 7, qy1 - 7], 6, fill=c("#fff3c0"), outline=c("#ee9a2a"))
+    for xx in range(qx0 + 14, qx1 - 16, 12):
+        d.rectangle([xx, qy0 + 10, xx + 5, qy0 + 11], fill=c("#ffc83a"))
+        d.rectangle([xx + 6, qy1 - 12, xx + 11, qy1 - 11], fill=c("#ffc83a"))
+    for (cxx, cyy) in ((qx0 + 14, qy0 + 14), (qx1 - 15, qy0 + 14), (qx0 + 14, qy1 - 15), (qx1 - 15, qy1 - 15)):
+        d.polygon([(cxx, cyy - 4), (cxx + 1, cyy - 1), (cxx + 4, cyy - 1), (cxx + 2, cyy + 1), (cxx + 3, cyy + 4), (cxx, cyy + 2),
+                   (cxx - 3, cyy + 4), (cxx - 2, cyy + 1), (cxx - 4, cyy - 1), (cxx - 1, cyy - 1)], fill=c("#ff7a2a"))
+    t = text_image("QUIZ ZONE", c("#e8602a"), FONT11B, 11)
+    t = t.resize((t.width * 2, t.height * 2), Image.NEAREST)
+    bg.alpha_composite(t, ((qx0 + qx1) // 2 - t.width // 2, qy0 + 14))
+    t2 = text_image("퀴즈 존", c("#b8451a"), FONT11B, 11)
+    bg.alpha_composite(t2, ((qx0 + qx1) // 2 - t2.width // 2, qy1 - 28))
     # ---- 급식실: 배식 대기선
-    for xx in range(54 * T, 62 * T, 32):
-        d.rectangle([xx, 4 * T + 24, xx + 18, 4 * T + 29], fill=hexc("#f0c030"))
+    for xx in range(54 * T, 62 * T, 16):
+        d.rectangle([xx, 4 * T + 12, xx + 9, 4 * T + 14], fill=c("#ffc83a"))
     # ---- 세로 복도: 아래쪽을 가리키는 노란 화살표
-    for (cxp, y_a, y_b) in ((int(53.5 * T + 32), 21, 30), (11 * T, 52, 61)):
+    for (cxp, y_a, y_b) in ((int(53.5 * T + 16), 21, 30), (11 * T, 52, 61)):
         for yy in range(y_a, y_b, 3):
             py = yy * T
-            for k in range(3):
-                d.polygon([(cxp - 40, py + k * 8), (cxp, py + 32 + k * 8), (cxp + 40, py + k * 8),
-                           (cxp + 40, py + 10 + k * 8), (cxp, py + 42 + k * 8), (cxp - 40, py + 10 + k * 8)],
-                          fill=hexc(["#f6c93a", "#f2d66a", "#f6e4a0"][k]))
-    return lines
+            for k in range(2):
+                d.polygon([(cxp - 20, py + k * 6), (cxp, py + 16 + k * 6), (cxp + 20, py + k * 6),
+                           (cxp + 20, py + 5 + k * 6), (cxp, py + 21 + k * 6), (cxp - 20, py + 5 + k * 6)],
+                          fill=c(["#ffc83a", "#ffe07a"][k]))
 
 
 # ====================================================================== 방 꾸미기
@@ -574,7 +560,6 @@ def furnish(b):
     b.dec("blackboard_6_퀴즈~시간!_steel", 16, 63, dy=-20)
     b.dec("tv", 22, 63, dx=4, dy=12)
     b.dec("window_3_blind", 24, 63)
-    b.dec("fan", 13, 63, dx=36, dy=18)
     b.obj("cubby_x", 14, 65)
     b.obj("lockerbank_6", 16, 65)
     b.obj("tabcart", 22, 65)
@@ -585,7 +570,7 @@ def furnish(b):
     for ry in (68, 70, 77, 79):
         for x in cols:
             b.obj("desk_book" if (x + ry) % 3 == 0 else ("desk_pencil" if (x + ry) % 5 == 0 else "desk"), x, ry)
-            b.obj("chair_grn_n", x, ry + 1)
+            b.obj(["chair_grn_n", "chair_yel_n", "chair_blu_n", "chair_pnk_n", "chair_mnt_n"][(x + ry // 2) % 5], x, ry + 1)
     b.obj("backpack_gr", 17, 70)
     b.obj("backpack_bl", 20, 71)
     b.obj("backpack_pk", 23, 69)
@@ -610,9 +595,9 @@ NPCS = [
 def build():
     b = Builder()
     furnish(b)
-    bg, lines = render_bg(b)
+    bg = render_bg(b)
 
-    from objects import get_sprite
+    from art import get_sprite
     names = set(n for (n, _, _) in b.objects) | set(n for (n, _, _) in b.decor)
     names |= {"gate_v_closed", "gate_v_open", "gate_h_closed", "gate_h_open"}
     for n in sorted(names):
@@ -663,9 +648,9 @@ def build():
         tile=32, w=MAP_W, h=MAP_H,
         collision=["".join("1" if blocked[y][x] else "0" for x in range(MAP_W)) for y in range(MAP_H)],
         objects=[dict(n=n, x=tx, y=ty) for (n, tx, ty) in b.objects],
-        decor=[dict(n=n, x=px // ART, y=py // ART) for (n, px, py) in b.decor],
+        decor=[dict(n=n, x=px, y=py) for (n, px, py) in b.decor],
         npcs=[dict(id=i, name=nm, spr=sp, x=tx, y=ty, dir=dr, area=area, role=role) for (i, nm, sp, tx, ty, dr, area, role) in NPCS],
         gates=gates, zones=zones, spawn=dict(x=3, y=11),
         order=["playground", "cafeteria", "gym", "library"],
     )
-    return dict(bg=bg, lines=lines, data=data, sprites=b.sprite_info, builder=b, blocked=blocked)
+    return dict(bg=bg, data=data, sprites=b.sprite_info, builder=b, blocked=blocked)

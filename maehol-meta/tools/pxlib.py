@@ -1,4 +1,5 @@
 """픽셀아트 생성용 공용 도구 (색상, 폰트, 외곽선, 잡음)."""
+import math
 import os
 import random
 from PIL import Image, ImageDraw, ImageFont
@@ -101,66 +102,95 @@ def hash2(x, y, s=0):
     return ((n ^ (n >> 16)) & 0xFFFF) / 65536.0
 
 
-# ---------------------------------------------------------------------- 2배 그림 → 게임 크기 그림
-def _lum(c):
-    return 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+# ---------------------------------------------------------------------- 귀여운 도트 그리기 도구
+PAD = 3                                   # 물건 아래 그림자가 깔리는 줄 수
+_OUT = (58, 44, 96, 255)                  # 윤곽선에 섞는 보랏빛
 
 
-def _pick(px):
-    """2x2 점 네 개를 점 한 개로 줄여요. 가장 많은 색을 고르고, 어두운 윤곽선은 살려요."""
-    op = [p for p in px if p[3] >= 200]
-    if len(op) >= 2:
-        cnt = {}
-        for p in op:
-            cnt[p] = cnt.get(p, 0) + 1
-        top = max(cnt, key=lambda k: cnt[k])
-        n = cnt[top]
-        if n >= 3:
-            d = min(op, key=_lum)
-            if cnt[d] == 1 and _lum(d) < _lum(top) - 60:      # 한 점뿐인 진한 선은 남겨요
-                top = d
-        elif n == 2 and len(cnt) == 2:
-            top = min(cnt, key=_lum)                          # 반반이면 어두운 쪽 (선이 끊기지 않게)
-        elif n == 1:
-            top = tuple(sum(p[i] for p in op) // len(op) for i in range(3)) + (255,)
-        return top[:3] + (255,)
-    if len(op) == 1 and all(p[3] == 0 for p in px if p is not op[0]) and _lum(op[0]) < 110:
-        return op[0][:3] + (255,)                             # 모서리의 어두운 윤곽선 한 점
-    a = sum(p[3] for p in px)
-    if a < 32:
-        return (0, 0, 0, 0)
-    rgb = tuple(sum(p[i] * p[3] for p in px) // a for i in range(3))   # 옅은 그림자는 평균으로
-    return rgb + (a // 4,)
+def ol_of(c, k=0.55):
+    """같은 색의 진한 윤곽선 색 (검정 대신 보랏빛이 도는 진한 색이라 귀여워요)."""
+    return mix(shade(c, k), _OUT, 0.3)
 
 
-def down2(im):
-    """2배 촘촘하게 그린 그림을 절반 크기로 줄여요 (게임 칸 32px 기준 픽셀아트로 만들어요)."""
-    im = im.convert("RGBA")
-    if im.width % 2 or im.height % 2:      # 홀수면 오른쪽/위쪽에 투명 한 줄을 붙여요
-        big = Image.new("RGBA", (im.width + im.width % 2, im.height + im.height % 2), (0, 0, 0, 0))
-        big.paste(im, (0, big.height - im.height))
-        im = big
-    W, H = im.size
-    out = Image.new("RGBA", (W // 2, H // 2))
-    cache = {}
-    for y0 in range(0, H, 64):             # 64줄씩 끊어서 처리해요 (메모리 절약)
-        sh = min(64, H - y0)
-        data = list(im.crop((0, y0, W, y0 + sh)).getdata())
-        res = []
-        for by in range(sh // 2):
-            r0 = data[2 * by * W:(2 * by + 1) * W]
-            r1 = data[(2 * by + 1) * W:(2 * by + 2) * W]
-            for bx in range(W // 2):
-                a, b, c, d = r0[2 * bx], r0[2 * bx + 1], r1[2 * bx], r1[2 * bx + 1]
-                if a == b == c == d:
-                    res.append(a if a[3] else (0, 0, 0, 0))
-                    continue
-                k = (a, b, c, d)
-                v = cache.get(k)
-                if v is None:
-                    v = cache[k] = _pick(k)
-                res.append(v)
-        strip = Image.new("RGBA", (W // 2, sh // 2))
-        strip.putdata(res)
-        out.paste(strip, (0, y0 // 2))
-    return out
+_CORNER = {0: [], 1: [1], 2: [2, 1], 3: [3, 1, 1], 4: [4, 2, 1, 1]}   # 둥근 모서리: 줄마다 깎는 칸 수
+
+
+def _corner(r):
+    if r not in _CORNER:                  # 큰 반지름은 원 공식으로 계산해요
+        _CORNER[r] = [r - int(math.sqrt(max(0, r * r - (r - i - 0.5) ** 2)) + 0.5) for i in range(r)]
+    return _CORNER[r]
+
+
+class S:
+    """그림 한 장을 그리는 캔버스. (x0,y0,x1,y1) 는 양 끝 칸을 포함해요."""
+
+    def __init__(self, w, h):
+        self.w, self.h = int(w), int(h)
+        self.im = Image.new("RGBA", (self.w, self.h), (0, 0, 0, 0))
+        self.d = ImageDraw.Draw(self.im)
+
+    def r(self, x0, y0, x1, y1, c):
+        self.d.rectangle([x0, y0, x1, y1], fill=c)
+
+    def px(self, x, y, c):
+        if 0 <= x < self.w and 0 <= y < self.h:
+            self.im.putpixel((int(x), int(y)), c)
+
+    def line(self, a, b, c):
+        self.d.line([a, b], fill=c)
+
+    def ell(self, x0, y0, x1, y1, c, ol=None):
+        self.d.ellipse([x0, y0, x1, y1], fill=c, outline=ol)
+
+    def poly(self, pts, c, ol=None):
+        self.d.polygon(pts, fill=c, outline=ol)
+
+    def paste(self, im, x, y, even=False):
+        self.im.alpha_composite(im, (int(x), int(y)))
+
+    def _fill_rr(self, x0, y0, x1, y1, c, r):
+        r = max(0, min(r, (x1 - x0) // 2, (y1 - y0) // 2))
+        cut = _corner(r)
+        for i, k in enumerate(cut):
+            self.d.line([(x0 + k, y0 + i), (x1 - k, y0 + i)], fill=c)
+            self.d.line([(x0 + k, y1 - i), (x1 - k, y1 - i)], fill=c)
+        self.d.rectangle([x0, y0 + len(cut), x1, y1 - len(cut)], fill=c)
+
+    def rr(self, x0, y0, x1, y1, c, ol=None, r=1, hi=None, lo=None):
+        """둥근 사각형. ol=윤곽선, hi=위쪽 밝은 줄, lo=아래쪽 어두운 줄 (입체감)."""
+        if ol:
+            self._fill_rr(x0, y0, x1, y1, ol, r)
+            x0, y0, x1, y1, r = x0 + 1, y0 + 1, x1 - 1, y1 - 1, max(0, r - 1)
+        self._fill_rr(x0, y0, x1, y1, c, r)
+        if hi and y1 - y0 >= 3:
+            self.d.line([(x0 + max(1, r), y0), (x1 - max(1, r), y0)], fill=hi)
+        if lo and y1 - y0 >= 3:
+            self.d.line([(x0 + max(1, r), y1), (x1 - max(1, r), y1)], fill=lo)
+
+    def box(self, x0, y0, x1, y1, top_h, col, r=1, top=None, ol=None):
+        """윗면(top_h 줄)과 앞면이 보이는 입체 상자. 윗면은 밝고, 앞면 아래쪽은 살짝 어두워요."""
+        ol = ol or ol_of(col)
+        top = top or lighten(col, 0.3)
+        self.rr(x0, y0, x1, y1, col, ol, r)
+        self.d.rectangle([x0 + 1, y0 + 1, x1 - 1, y0 + top_h], fill=top)
+        self.d.line([(x0 + 1, y0 + top_h + 1), (x1 - 1, y0 + top_h + 1)], fill=shade(col, 0.82))
+        self.d.line([(x0 + 2, y0 + 1), (x1 - 2, y0 + 1)], fill=lighten(top, 0.5))
+        self.d.line([(x0 + 1, y1 - 1), (x1 - 1, y1 - 1)], fill=shade(col, 0.82))
+
+    def shadow(self, x0, x1, a=64):
+        """바닥 그림자: 아래 PAD 줄에 옅게 깔려요."""
+        sh = Image.new("RGBA", self.im.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(sh)
+        for i in range(PAD):
+            k = i // 2 + (1 if i else 0)
+            d.line([(x0 + 1 + k, self.h - PAD + i), (x1 - 1 - k, self.h - PAD + i)], fill=(52, 36, 96, int(a * (1 - i / (PAD + 0.6)))))
+        self.im.alpha_composite(sh)
+        self.d = ImageDraw.Draw(self.im)
+
+
+def ret(s, w, d, solid=True):
+    return dict(img=s.im, w=w, d=d, pad=PAD, solid=solid)
+
+
+def decor_ret(s, w, d):
+    return dict(img=s.im, w=w, d=d, pad=0, solid=False, decor=True)
