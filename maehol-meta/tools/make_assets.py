@@ -3,12 +3,12 @@
     python3 tools/make_assets.py
 
 만들어지는 것
-  assets/sprites/<캐릭터>/<방향>_<프레임>.png   캐릭터/NPC (방향: down,left,right,up / 프레임: 0,1,2)
+  assets/sprites/<캐릭터>.png                    캐릭터/NPC 시트 (가로 3프레임 x 세로 4방향: 앞,왼쪽,오른쪽,뒤)
   assets/portraits/<캐릭터>.png                  선택 카드와 대화창용 얼굴 그림
   assets/objects/<이름>.png                      가구, 소품, 벽 장식, 문 (오브젝트 하나당 PNG 하나)
   assets/backgrounds/map.png, title.png          맵 배경(바닥+벽), 시작 화면
   assets/ui/*.png                                아이콘
-  js/data/map.js, js/data/assets.js              게임이 읽는 맵/에셋 목록
+  game/map_data.js                               게임이 읽는 맵/이미지 목록
 """
 import hashlib
 import json
@@ -27,13 +27,6 @@ from pxlib import ROOT, hexc, shade, lighten, text_image, FONT11B, FONT9
 
 A = os.path.join(ROOT, "assets")
 DATA = os.path.join(ROOT, "data")
-
-# 맵에 쓰이진 않지만 나중에 쓰기 좋게 함께 만들어 두는 오브젝트
-EXTRA_OBJECTS = ["locker_2", "lowshelf_2", "cabinet_3", "bookcart", "posterstand", "trophy_3", "ballcart",
-                 "poster_quiet", "poster_sports", "poster_water", "speakerwall", "flagstand", "bush_4", "tree",
-                 "desk_pencil", "table_3x1_white", "table_4x1_wood", "chair_pur_s", "chair_grn_n", "chair_blu_n",
-                 "chair_red_s", "bulletin_3", "window_2_field", "blackboard_6", "banner_환영합니다_6"]
-
 
 KO = {"운동장": "playground", "급식실": "cafeteria", "체육관": "gym", "도서관": "library", "교실~(퀴즈)": "classroom"}
 ALIASES = {
@@ -68,23 +61,20 @@ def clean(path):
 
 
 def make_sprites():
+    """캐릭터 한 명 = 시트 한 장 (가로 3프레임 x 세로 4방향: 앞, 왼쪽, 오른쪽, 뒤)."""
     clean(os.path.join(A, "sprites"))
     clean(os.path.join(A, "portraits"))
     out = {}
-    for key in chars.STYLES:
-        d = os.path.join(A, "sprites", key)
-        os.makedirs(d, exist_ok=True)
-        st = chars.STYLES[key]
-        for dn in chars.DIRS:
-            for f in range(3):
-                chars.draw_char(st, dn, f).save(os.path.join(d, f"{dn}_{f}.png"))
-        # 얼굴 그림: 머리~가슴 부분을 4배로 확대
+    players = list(chars.STYLES.keys())[:3]          # 동훈, 민성, 성민
+    for key, st in chars.STYLES.items():
+        chars.make_sheet(key).save(os.path.join(A, "sprites", f"{key}.png"))
+        # 대화창에 쓰는 얼굴 그림: 머리~가슴을 4배로 확대
         face = chars.draw_char(st, "down", 0).crop((2, 0, 28, 30))
         face.resize((face.width * 4, face.height * 4), Image.NEAREST).save(os.path.join(A, "portraits", f"{key}.png"))
-        # 선택 카드용 전신 그림(5배)
-        body = chars.draw_char(st, "down", 0)
-        body.resize((body.width * 5, body.height * 5), Image.NEAREST).save(os.path.join(A, "portraits", f"{key}_full.png"))
-        out[key] = dict(w=chars.CW, h=chars.CH, ax=chars.ANCHOR[0], ay=chars.ANCHOR[1])
+        out[key] = dict(w=chars.CW, h=chars.CH, ax=chars.ANCHOR[0], ay=chars.ANCHOR[1], full=key in players)
+        if key in players:                             # 캐릭터 선택 카드용 전신 그림(5배)
+            body = chars.draw_char(st, "down", 0)
+            body.resize((body.width * 5, body.height * 5), Image.NEAREST).save(os.path.join(A, "portraits", f"{key}_full.png"))
     return out
 
 
@@ -92,9 +82,6 @@ def make_objects(res):
     clean(os.path.join(A, "objects"))
     info = {}
     sprites = dict(res["sprites"])
-    for n in EXTRA_OBJECTS:
-        if n not in sprites:
-            sprites[n] = objects.get_sprite(n)
     for n, sp in sorted(sprites.items()):
         f = slug(n) + ".png"
         sp["img"].save(os.path.join(A, "objects", f))
@@ -186,26 +173,25 @@ def make_backgrounds(res):
     return False
 
 
-def js_write(path, var, obj):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("// 자동 생성 파일입니다. (tools/make_assets.py)\n")
-        f.write(f"window.{var} = ")
-        json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
-        f.write(";\n")
-
-
 def main():
     res = mapbuild.build()
     sprites = make_sprites()
     objs = make_objects(res)
     make_ui()
     has_title = make_backgrounds(res)
-    js_write(os.path.join(ROOT, "js", "data", "map.js"), "MAEHOL_MAP", res["data"])
-    js_write(os.path.join(ROOT, "js", "data", "assets.js"), "MAEHOL_ASSETS",
-             dict(sprites=sprites, objects=objs, title=has_title,
-                  ui=["bubble_exclaim", "bubble_talk", "check", "lock", "star", "heart", "ring", "arrow_down"],
-                  dirs=chars.DIRS))
+    out = os.path.join(ROOT, "game", "map_data.js")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    assets = dict(sprites=sprites, objects=objs, title=has_title,
+                  ui=["bubble_exclaim", "bubble_talk", "check", "lock", "star", "heart", "ring", "arrow_down"])
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("// 자동으로 만들어진 파일이에요. 직접 고치지 말고 tools/make_assets.py 를 다시 실행하세요.\n")
+        f.write("// MAEHOL_MAP    = 맵 크기, 충돌 지도, 가구 위치, NPC 위치, 잠긴 문 정보\n")
+        f.write("// MAEHOL_ASSETS = 어떤 이미지 파일이 있는지 목록\n")
+        f.write("window.MAEHOL_MAP = ")
+        json.dump(res["data"], f, ensure_ascii=False, separators=(",", ":"))
+        f.write(";\nwindow.MAEHOL_ASSETS = ")
+        json.dump(assets, f, ensure_ascii=False, separators=(",", ":"))
+        f.write(";\n")
     print("스프라이트:", len(sprites), "오브젝트:", len(objs), "제목 화면:", has_title)
 
 
