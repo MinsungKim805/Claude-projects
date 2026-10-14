@@ -98,4 +98,69 @@ def add_outline(im, col=None):
 def hash2(x, y, s=0):
     n = (x * 374761393 + y * 668265263 + s * 982451653) & 0xFFFFFFFF
     n = (n ^ (n >> 13)) * 1274126177 & 0xFFFFFFFF
-    return ((n ^ (n >> 16)) & 0xFFFF) / 65535.0
+    return ((n ^ (n >> 16)) & 0xFFFF) / 65536.0
+
+
+# ---------------------------------------------------------------------- 2배 그림 → 게임 크기 그림
+def _lum(c):
+    return 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+
+
+def _pick(px):
+    """2x2 점 네 개를 점 한 개로 줄여요. 가장 많은 색을 고르고, 어두운 윤곽선은 살려요."""
+    op = [p for p in px if p[3] >= 200]
+    if len(op) >= 2:
+        cnt = {}
+        for p in op:
+            cnt[p] = cnt.get(p, 0) + 1
+        top = max(cnt, key=lambda k: cnt[k])
+        n = cnt[top]
+        if n >= 3:
+            d = min(op, key=_lum)
+            if cnt[d] == 1 and _lum(d) < _lum(top) - 60:      # 한 점뿐인 진한 선은 남겨요
+                top = d
+        elif n == 2 and len(cnt) == 2:
+            top = min(cnt, key=_lum)                          # 반반이면 어두운 쪽 (선이 끊기지 않게)
+        elif n == 1:
+            top = tuple(sum(p[i] for p in op) // len(op) for i in range(3)) + (255,)
+        return top[:3] + (255,)
+    if len(op) == 1 and all(p[3] == 0 for p in px if p is not op[0]) and _lum(op[0]) < 110:
+        return op[0][:3] + (255,)                             # 모서리의 어두운 윤곽선 한 점
+    a = sum(p[3] for p in px)
+    if a < 32:
+        return (0, 0, 0, 0)
+    rgb = tuple(sum(p[i] * p[3] for p in px) // a for i in range(3))   # 옅은 그림자는 평균으로
+    return rgb + (a // 4,)
+
+
+def down2(im):
+    """2배 촘촘하게 그린 그림을 절반 크기로 줄여요 (게임 칸 32px 기준 픽셀아트로 만들어요)."""
+    im = im.convert("RGBA")
+    if im.width % 2 or im.height % 2:      # 홀수면 오른쪽/위쪽에 투명 한 줄을 붙여요
+        big = Image.new("RGBA", (im.width + im.width % 2, im.height + im.height % 2), (0, 0, 0, 0))
+        big.paste(im, (0, big.height - im.height))
+        im = big
+    W, H = im.size
+    out = Image.new("RGBA", (W // 2, H // 2))
+    cache = {}
+    for y0 in range(0, H, 64):             # 64줄씩 끊어서 처리해요 (메모리 절약)
+        sh = min(64, H - y0)
+        data = list(im.crop((0, y0, W, y0 + sh)).getdata())
+        res = []
+        for by in range(sh // 2):
+            r0 = data[2 * by * W:(2 * by + 1) * W]
+            r1 = data[(2 * by + 1) * W:(2 * by + 2) * W]
+            for bx in range(W // 2):
+                a, b, c, d = r0[2 * bx], r0[2 * bx + 1], r1[2 * bx], r1[2 * bx + 1]
+                if a == b == c == d:
+                    res.append(a if a[3] else (0, 0, 0, 0))
+                    continue
+                k = (a, b, c, d)
+                v = cache.get(k)
+                if v is None:
+                    v = cache[k] = _pick(k)
+                res.append(v)
+        strip = Image.new("RGBA", (W // 2, sh // 2))
+        strip.putdata(res)
+        out.paste(strip, (0, y0 // 2))
+    return out
