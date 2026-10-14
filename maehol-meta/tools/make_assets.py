@@ -4,11 +4,10 @@
 
 만들어지는 것
   assets/sprites/<캐릭터>.png                    캐릭터/NPC 시트 (가로 3프레임 x 세로 4방향: 앞,왼쪽,오른쪽,뒤)
-  assets/portraits/<캐릭터>.png                  선택 카드와 대화창용 얼굴 그림
   assets/objects/<이름>.png                      가구, 소품, 벽 장식, 문 (오브젝트 하나당 PNG 하나)
   assets/backgrounds/map.png, title.png          맵 배경(바닥+벽), 시작 화면
   assets/ui/*.png                                아이콘
-  game/map_data.js                               게임이 읽는 맵/이미지 목록
+  map_data.js                                    게임이 읽는 맵/이미지 목록
 """
 import hashlib
 import json
@@ -61,21 +60,11 @@ def clean(path):
 
 
 def make_sprites():
-    """캐릭터 한 명 = 시트 한 장 (가로 3프레임 x 세로 4방향: 앞, 왼쪽, 오른쪽, 뒤)."""
+    """캐릭터 한 명 = 시트 한 장 (가로 3프레임 x 세로 4방향: 앞, 왼쪽, 오른쪽, 뒤). 칸 하나는 30x46."""
     clean(os.path.join(A, "sprites"))
-    clean(os.path.join(A, "portraits"))
-    out = {}
-    players = list(chars.STYLES.keys())[:3]          # 동훈, 민성, 성민
-    for key, st in chars.STYLES.items():
+    for key in chars.STYLES:
         chars.make_sheet(key).save(os.path.join(A, "sprites", f"{key}.png"))
-        # 대화창에 쓰는 얼굴 그림: 머리~가슴을 4배로 확대
-        face = chars.draw_char(st, "down", 0).crop((2, 0, 28, 30))
-        face.resize((face.width * 4, face.height * 4), Image.NEAREST).save(os.path.join(A, "portraits", f"{key}.png"))
-        out[key] = dict(w=chars.CW, h=chars.CH, ax=chars.ANCHOR[0], ay=chars.ANCHOR[1], full=key in players)
-        if key in players:                             # 캐릭터 선택 카드용 전신 그림(5배)
-            body = chars.draw_char(st, "down", 0)
-            body.resize((body.width * 5, body.height * 5), Image.NEAREST).save(os.path.join(A, "portraits", f"{key}_full.png"))
-    return out
+    return {key: {} for key in chars.STYLES}
 
 
 def make_objects(res):
@@ -134,11 +123,6 @@ def make_ui():
     d.polygon([(8, 0), (10, 6), (16, 6), (11, 10), (13, 16), (8, 12), (3, 16), (5, 10), (0, 6), (6, 6)],
               fill=hexc("#f6c93a"), outline=hexc("#9a6a10"))
     save(s, "star.png")
-    # 하트
-    s = Image.new("RGBA", (16, 14), (0, 0, 0, 0))
-    d = ImageDraw.Draw(s)
-    d.polygon([(8, 13), (0, 5), (2, 1), (5, 0), (8, 3), (11, 0), (14, 1), (16, 5)], fill=hexc("#e8506a"), outline=hexc("#7a1a2a"))
-    save(s, "heart.png")
     # 발밑 하이라이트 링(ZEP처럼 내 캐릭터 아래에 깔려요)
     s = Image.new("RGBA", (36, 16), (0, 0, 0, 0))
     d = ImageDraw.Draw(s)
@@ -179,10 +163,10 @@ def main():
     objs = make_objects(res)
     make_ui()
     has_title = make_backgrounds(res)
-    out = os.path.join(ROOT, "game", "map_data.js")
+    out = os.path.join(ROOT, "map_data.js")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     assets = dict(sprites=sprites, objects=objs, title=has_title,
-                  ui=["bubble_exclaim", "bubble_talk", "check", "lock", "star", "heart", "ring", "arrow_down"])
+                  ui=["bubble_exclaim", "bubble_talk", "check", "lock", "star", "ring", "arrow_down"])
     with open(out, "w", encoding="utf-8") as f:
         f.write("// 자동으로 만들어진 파일이에요. 직접 고치지 말고 tools/make_assets.py 를 다시 실행하세요.\n")
         f.write("// MAEHOL_MAP    = 맵 크기, 충돌 지도, 가구 위치, NPC 위치, 잠긴 문 정보\n")
