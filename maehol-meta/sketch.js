@@ -53,23 +53,24 @@ function loadImages() {
       im.src = url;
     }));
   };
-  const FILES = LIST.files;   // 큰 그림 파일의 위치 (map_data.js 에 적혀 있어요)
-  if (LIST.atlas) {   // 묶음 방식(p5 웹 에디터용): 묶음 그림 한 장을 불러와서 조각조각 잘라 써요
-    load(LIST.atlas.file, (im) => {
+  if (LIST.atlas) {   // 묶음 방식(p5 웹 에디터용): 큰 그림 한 장을 불러와서 조각조각 잘라 써요
+    load("art.png", (im) => {
       for (const name in LIST.atlas.rects) {
         const [x, y, w, h] = LIST.atlas.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
         cut.getContext("2d").drawImage(im, x, y, w, h, 0, 0, w, h);
-        const [kind, key] = name.split(":");
-        (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
+        const [kind, key] = name.split(":");   // 이름 앞에 spr: ui: img: 가 붙어 있으면 종류를 나타내요
+        if (kind === "img") IMG[key] = cut;    // img:bg = 맵 배경, img:title = 시작 화면
+        else (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
       }
     });
   } else {            // 낱개 방식: 그림마다 PNG 한 장 (assets 폴더)
+    const FILES = LIST.files;   // 큰 그림 파일의 위치 (map_data.js 에 적혀 있어요)
     for (const n in LIST.objects) load("assets/objects/" + LIST.objects[n].file, (im) => (IMG.obj[n] = im));
     for (const k in LIST.sprites) load(`assets/sprites/${k}.png`, (im) => (IMG.spr[k] = im));
     for (const u of LIST.ui) load(`assets/ui/${u}.png`, (im) => (IMG.ui[u] = im));
+    load(FILES.map, (im) => (IMG.bg = im));
+    if (LIST.title) load(FILES.title, (im) => (IMG.title = im));
   }
-  load(FILES.map, (im) => (IMG.bg = im));
-  if (LIST.title) load(FILES.title, (im) => (IMG.title = im));
   return Promise.all(jobs);
 }
 
