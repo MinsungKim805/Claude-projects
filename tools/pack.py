@@ -126,6 +126,14 @@ def write_game(assets_dir, MAP, objects, sprites, ui, has_title):
         n = len(re.findall(r"""["']""" + re.escape(name) + r"""["']""", code))
         if n != 1:
             print(f"!! sketch.js 안에 따옴표 친 {name} 이 {n}번 있어요. 딱 한 번만 쓰세요. (주석·안내 글에는 따옴표 없이 써요)")
+    # p5 웹 에디터는 for(;;) · while 반복문에 '반복문 보호' 코드를 끼워 넣는데, 중첩된 반복문에서는 변수 선언이 빠져 ReferenceError(_LP1 is not defined)가 나요
+    # → 반복은 for...of / times(n) / forEach 로만 써요. (index.html 맨 위의 noprotect 표시는 에디터 기본 index.html 로 실행하면 소용없어요)
+    for name in ("sketch.js", "content.js"):
+        with open(os.path.join(GAME, name), encoding="utf-8") as f:
+            for no, line in enumerate(f.read().splitlines(), 1):
+                code = re.sub(r"//.*", "", line)
+                if re.search(r"\bwhile\s*\(|\bdo\s*\{", code) or (re.search(r"\bfor\s*\(", code) and not re.search(r"\bfor\s*\(\s*(const|let|var)\s+(\[[^\]]*\]|\{[^}]*\}|\w+)\s+(of|in)\b", code)):
+                    print(f"!! {name} {no}번째 줄에 for(;;) / while 반복문이 있어요. for...of, times(n), forEach 로 바꿔 주세요: {line.strip()[:60]}")
     for name in ("sketch.js", "content.js", "index.html"):     # 80KB 가 넘는 js 는 웹 에디터에서 고칠 수 없는 파일로 올라가요
         size = os.path.getsize(os.path.join(GAME, name))
         if size > 78000:

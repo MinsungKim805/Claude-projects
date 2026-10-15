@@ -50,6 +50,7 @@ p5 웹 에디터는 한 번에 6개까지 올릴 수 있어서, `maehol-meta/` �
 
 > **파일이 빠져도 시작돼요**: `data.js` 나 `art.png` 가 없거나 이름이 바뀌어 있으면, 게임이 같은 파일을 인터넷(GitHub)에서 대신 가져와요. (`content.js` 도 마찬가지예요.) 그래서 `TypeError: Cannot read properties of undefined (reading 'collision')` 같은 오류는 더 이상 나지 않아요. 대신 내가 고친 내용이 반영되지 않을 수 있으니, 맵·그림을 고쳤다면 내 파일을 제대로 올려야 해요.
 > 인터넷에서도 못 가져오면 화면에 **어떤 파일이 없는지** 와 해결 방법이 나와요.
+> `ReferenceError: _LP1 is not defined` 는 에디터의 '반복문 보호' 기능이 중첩된 `for` 문을 잘못 바꿔서 나던 오류예요. 이제 코드에 `for(;;)` · `while` 을 쓰지 않아서(`for...of`, `times(n)` 사용) 나지 않아요. 코드를 고칠 때도 이 두 가지는 쓰지 마세요. (도구로 다시 만들 때 `tools/pack.py` 가 검사해 줘요)
 
 ## 4. 학교 소개 대사와 퀴즈 넣기 ★
 `content.js` 파일 하나만 고치면 돼요. 파일 안에 설명이 적혀 있어요.

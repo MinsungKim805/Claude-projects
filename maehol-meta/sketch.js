@@ -25,6 +25,7 @@
 // =====================================================================
 const [W, H, Z, T] = [1280, 720, 2, 32];   // 화면 가로·세로, 맵 확대 배율, 타일(한 칸) 크기(픽셀)
 const VW = W / Z, VH = H / Z;                // 화면에 보이는 맵의 크기(확대 전)
+const times = (n) => [...Array(n).keys()];     // times(3) → [0, 1, 2]  (반복할 때 써요. for(;;) · while 은 p5 웹 에디터의 반복문 보호 기능과 충돌해서 쓰지 않아요)
 let MAP, LIST, SCRIPT, QUIZ;   // 맵 데이터, 그림 위치 목록(data.js), 대사, 퀴즈(content.js) — 바로 아래 파일 불러오기 코드가 채워 줘요
 const FONT = "Galmuri11";
 
@@ -139,7 +140,7 @@ function moveVec() {
   if (!x && !y && motion.dir) { x = { left: -1, right: 1 }[motion.dir] || 0; y = { up: -1, down: 1 }[motion.dir] || 0; }
   return { x, y };
 }
-const numberKey = () => { for (let i = 0; i < 9; i++) if (was("Digit" + (i + 1)) || was("Numpad" + (i + 1))) return i; return -1; };   // 1~9 키 → 0~8
+const numberKey = () => times(9).find((i) => was("Digit" + (i + 1)) || was("Numpad" + (i + 1))) ?? -1;   // 1~9 키 → 0~8
 const navKey = () => (was("ArrowUp") || was("KeyW") ? -1 : was("ArrowDown") || was("KeyS") ? 1 : motion.nav);                    // 메뉴 위/아래
 
 // ---- 효과음: [높이(Hz), 길이(초), 파형, 크기] 를 순서대로 "삑삑" 내요. 숫자를 바꾸면 소리가 달라져요.
@@ -334,8 +335,8 @@ function isBlocked(tx, ty) {
 }
 // 발 위치(x, y)에 서면 막히는지 (발 주변 가로 16, 세로 6 크기의 상자를 검사해요)
 function footBlocked(x, y) {
-  for (let ty = Math.floor((y - 6) / T); ty <= Math.floor(y / T); ty++) for (let tx = Math.floor((x - 8) / T); tx <= Math.floor((x + 8) / T); tx++) if (isBlocked(tx, ty)) return true;
-  return false;
+  const [x0, x1, y0, y1] = [Math.floor((x - 8) / T), Math.floor((x + 8) / T), Math.floor((y - 6) / T), Math.floor(y / T)];
+  return times(y1 - y0 + 1).some((j) => times(x1 - x0 + 1).some((i) => isBlocked(x0 + i, y0 + j)));
 }
 // 조건(requires)을 채운 문을 열어요. 새로 열린 문 목록을 돌려줘요.
 function openGates(effects) {
@@ -344,7 +345,7 @@ function openGates(effects) {
     g.open = true;
     if (!effects) continue;
     const [cx, cy] = g.o === "v" ? [(g.x + 0.5) * T, (g.y + g.size / 2) * T] : [(g.x + g.size / 2) * T, (g.y + 0.5) * T];
-    for (let i = 0; i < 36; i++) {   // 반짝이는 불꽃 36개
+    for (const i of times(36)) {   // 반짝이는 불꽃 36개
       const a = Math.random() * 6.28, s = 20 + Math.random() * 70;
       sparks.push({ x: cx + Math.random() * 28 - 14, y: cy + Math.random() * 28 - 14, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 20, life: 0.7 + Math.random() * 0.6, age: 0, col: ["#ffe14a", "#fff", "#9ae8ff", "#ffb0d0"][i % 4] });
     }
@@ -627,7 +628,7 @@ scenes.select = {
     g.addColorStop(0, "#3a2f73"); g.addColorStop(1, "#1b1740");
     drawingContext.fillStyle = g; drawingContext.fillRect(0, 0, W, H);
     noStroke();
-    for (let i = 0; i < 46; i++) { fill(255, 255, 255, 80 + 120 * Math.abs(Math.sin(clock * 1.4 + i))); rect((i * 197) % W, (i * 83) % 420, 3, 3); }
+    for (const i of times(46)) { fill(255, 255, 255, 80 + 120 * Math.abs(Math.sin(clock * 1.4 + i))); rect((i * 197) % W, (i * 83) % 420, 3, 3); }
     txt("캐릭터를 골라 주세요", W / 2, 40, 40, { align: CENTER, bold: true, color: "#ffe27a", outline: "#2a1a50", outlineW: 6 });
     txt(tmFaceUrl() ? "카메라에 얼굴을 보여 주면 내 캐릭터가 자동으로 골라져요!" : "숫자 1 · 2 · 3 을 누르거나 카드를 클릭해서 골라요", W / 2, 96, 22, { align: CENTER, color: "#d8d4ff" });
     this.drawCamera();
@@ -896,7 +897,7 @@ scenes.game = {
     const ratio = quiz.score / QUIZ.length, stars = ratio >= 1 ? 3 : ratio >= 0.6 ? 2 : ratio > 0 ? 1 : 0;   // 만점이면 별 3개, 60% 이상 2개, 하나라도 맞히면 1개
     txt("퀴즈 결과", x + w / 2, y + 36, 36, { align: CENTER, bold: true, color: "#ffe27a" });
     txt(`${quiz.score} / ${QUIZ.length}`, x + w / 2, y + 120, 96, { align: CENTER, bold: true, outline: "#2a1a50", outlineW: 10 });
-    for (let i = 0; i < 3; i++) { drawingContext.globalAlpha = i < stars ? 1 : 0.25; drawingContext.drawImage(IMG.ui.star, x + w / 2 - 152 + i * 80, y + 238 + (i < stars ? Math.sin(clock * 4 + i) * 4 : 0), 64, 64); }
+    for (const i of times(3)) { drawingContext.globalAlpha = i < stars ? 1 : 0.25; drawingContext.drawImage(IMG.ui.star, x + w / 2 - 152 + i * 80, y + 238 + (i < stars ? Math.sin(clock * 4 + i) * 4 : 0), 64, 64); }
     drawingContext.globalAlpha = 1;
     txt(ratio >= 1 ? "만점이에요! 우리 학교 박사님이네요!" : ratio >= 0.6 ? "잘했어요! 우리 학교를 잘 알고 있어요." : "소개를 다시 한 번 들어 보고 도전해 봐요!", x + w / 2, y + 340, 30, { align: CENTER, bold: true });   // 응원 문구 (바꿔도 돼요)
     if (best != null) txt(`내 최고 점수  ${best} / ${QUIZ.length}`, x + w / 2, y + 400, 22, { align: CENTER, color: "#ffe27a" });
