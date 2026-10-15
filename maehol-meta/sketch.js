@@ -97,7 +97,7 @@ async function loadFile(f) {   // content.js, data.js: 이미 불러와져 있�
   if (window[f.key]) return "내 파일";
   const got = await firstOk(sources(f).map(([who, src]) => async () => {
     phase[f.name] = who + "에서 받는 중";
-    const v = (await fetchText(src, f)) ?? (who === "내 파일" && (await tagScript(src, f)));   // 내 파일은 글자로 못 읽으면 태그로 한 번 더
+    const v = (await fetchText(src, f)) ?? (who === "내 파일" && (/^https?:/.test(src) || location.protocol === "file:") && (await tagScript(src, f)));   // 내 파일은 글자로 못 읽으면 태그로 한 번 더
     return v === true && !window[f.key] ? null : v && [v, who];
   }));
   if (got && got[0] !== true) runScript(got[0]);
@@ -119,6 +119,27 @@ function sliceSheet(sheet) {   // 묶음 그림을 조각조각 잘라요 (data.
     if (kind === "img") IMG[key] = cut;
     else (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
   }
+}
+
+// content.js 에 적은 대사·퀴즈가 빠짐없이 올바른지 점검해서, 문제 목록을 돌려줘요 (틀린 채로 시작하면 게임 도중에 멈추기 때문이에요)
+function checkContent() {
+  const bad = [], S = SCRIPT, C = window.CONFIG, lines = (a) => Array.isArray(a) && a.length > 0 && a.every((t) => typeof t === "string");
+  const npcOf = (id, role) => MAP.npcs.some((n) => n.id === id && n.role === role);
+  AREAS.forEach((a) => {
+    if (!lines(S.areas?.[a]?.lines)) bad.push(`areas.${a}.lines : 대사 목록이 비었거나 글이 아닌 게 있어요`);
+    if (!npcOf(S.areas?.[a]?.npc, "guide")) bad.push(`areas.${a}.npc : 안내 NPC 이름이 맞지 않아요 (haneul, doyun, seoyeon, jiu)`);
+    if (!S.objective?.[a]) bad.push(`objective.${a} : 목표 문구가 없어요`);
+  });
+  ["quiz", "done"].forEach((k) => S.objective?.[k] || bad.push(`objective.${k} : 목표 문구가 없어요`));
+  if (!npcOf(S.quiz?.npc, "quiz")) bad.push("quiz.npc : 퀴즈 NPC 이름이 맞지 않아요 (banjang)");
+  ["locked", "intro", "again"].forEach((k) => lines(S.quiz?.[k]) || bad.push(`quiz.${k} : 대사 목록이 비었어요`));
+  if (!Array.isArray(QUIZ) || !QUIZ.length) bad.push("퀴즈가 하나도 없어요");
+  else QUIZ.forEach((q, i) => {
+    if (!q.q || !Array.isArray(q.choices) || q.choices.length < 2 || q.choices.length > 4) bad.push(`퀴즈 ${i + 1}번 : 문제(q)와 보기(choices 2~4개)가 필요해요`);
+    else if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer >= q.choices.length) bad.push(`퀴즈 ${i + 1}번 : answer 는 0부터 ${q.choices.length - 1} 사이 숫자여야 해요 (0 = 첫 번째 보기)`);
+  });
+  ["PLAYER_SPEED", "TEXT_SPEED", "FACE_MIN_PROB", "FACE_HOLD_MS", "MOTION_MIN_PROB"].forEach((k) => typeof C[k] === "number" || bad.push(`CONFIG.${k} : 숫자가 필요해요`));
+  return bad;
 }
 
 // 인터넷도 안 될 때의 마지막 방법: 내 컴퓨터에 있는 파일(zip 을 푼 폴더의 content.js, data.js, art.png)을 직접 골라요
@@ -227,13 +248,18 @@ function txt(s, x, y, size, o = {}) {
 }
 function textW(s, size, bold) { push(); textFont(FONT); textSize(size); textStyle(bold ? BOLD : NORMAL); const w = textWidth(s); pop(); return w; }
 // 긴 글을 maxW 너비에 맞게 여러 줄로 나눠요 (글자 단위로 자르기)
+const wrapMemo = new Map();
 function wrapText(s, maxW, size, bold) {
+  const key = `${s}|${maxW}|${size}|${bold}`;
+  if (wrapMemo.has(key)) return wrapMemo.get(key);
   const lines = [];
   for (const para of String(s).split("\n")) {
     let cur = "";
     for (const ch of para) { if (textW(cur + ch, size, bold) > maxW) { lines.push(cur); cur = ""; } cur += ch; }
     lines.push(cur);
   }
+  if (wrapMemo.size > 300) wrapMemo.clear();
+  wrapMemo.set(key, lines);
   return lines;
 }
 // 둥근 상자. o = { fill, border, r(둥글기), bw(테두리 굵기), shadow }
@@ -505,7 +531,7 @@ const debugMotion = (label, prob = 0.95) => { tm.motion.status = "준비됨(테�
 
 // 필요한 라이브러리를 그때그때 불러와요 (링크가 없으면 불러오지 않아서 게임이 가벼워요)
 const scriptCache = {};
-const loadScript = (src) => (scriptCache[src] ||= new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => fail(new Error("불러오기 실패: " + src)); document.head.appendChild(s); }));
+const loadScript = (src) => (scriptCache[src] ||= new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => { delete scriptCache[src]; fail(new Error("라이브러리를 불러오지 못했어요 (인터넷을 확인해 주세요)")); }; document.head.appendChild(s); }));
 // 티처블 머신 라이브러리 주소 (티처블 머신 공식 안내와 같아요). 링크를 넣었을 때만 인터넷에서 불러와요.
 const LIB = {
   tf: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js",
@@ -530,10 +556,12 @@ async function startTeachable() {
     tm.error = null;
   } catch (e) { tm.error = e.message; tm.running = false; return; }
   // 2) 링크가 있는 모델만 불러오기
-  await loadScript(LIB.tf);
   const poseMode = CONFIG.TM_MOTION_TYPE !== "image" && tmMotionUrl();
-  if (poseMode) await loadScript(LIB.pose);
-  if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadScript(LIB.image);
+  try {
+    await loadScript(LIB.tf);
+    if (poseMode) await loadScript(LIB.pose);
+    if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadScript(LIB.image);
+  } catch (e) { tm.error = e.message; tm.running = false; return; }
   const load = async (key, url, lib) => { tm[key].status = "불러오는 중..."; try { tm[key].model = await lib.load(...modelUrls(url)); tm[key].status = "준비됨"; } catch (e) { tm[key].status = "오류: 모델을 불러오지 못했어요"; console.warn(e); } };
   await Promise.all([tmFaceUrl() && load("face", tmFaceUrl(), window.tmImage), tmMotionUrl() && load("motion", tmMotionUrl(), poseMode ? window.tmPose : window.tmImage)]);
   tick();
@@ -580,7 +608,7 @@ function goTo(name, arg) { scene = name; clock = 0; scenes[name].enter?.(arg); }
 let boot = { step: 0, state: "loading" };   // step: 끝낸 일의 수(0~4), state: loading → ok / fail
 scenes.boot = {
   enter() {
-    boot = { step: 0, state: "loading" };
+    boot = { step: 0, state: "loading", problems: [] };
     [loadState, tried, phase].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
     (async () => {
       const tasks = FILES.map(async (f) => { loadState[f.name] = await loadFile(f); boot.step++; });   // 세 파일을 동시에 가져와요
@@ -591,6 +619,7 @@ scenes.boot = {
       await Promise.all(["22px Galmuri11", "bold 22px Galmuri11", "11px Galmuri11"].map((f) => document.fonts.load(f, "매홀중학교 ABC"))).catch(() => {});   // 글꼴
       boot.step++;
       boot.state = MAP && LIST && SCRIPT && QUIZ && window.CONFIG && IMG.bg && IMG.title ? "ok" : "fail";
+      if (boot.state === "ok" && (boot.problems = checkContent()).length) boot.state = "fail";   // 파일은 왔는데 내용이 틀렸을 때
     })();
   },
   update() { if (boot.state === "ok" && clock > 0.4) { initWorld(); goTo("title"); } },
@@ -608,6 +637,13 @@ scenes.boot = {
   },
   drawFail() {   // 파일이 없어서 시작할 수 없을 때: 뭐가 안 불러와졌는지, 왜 그런지, 어떻게 하면 되는지 알려줘요
     const [x, y, w, h] = [150, 60, 980, 600];
+    if (boot.problems?.length) {   // 파일은 왔는데 content.js 내용이 틀렸을 때
+      panel(x, y, w, h, { fill: "rgba(30,24,60,0.95)", border: "#ff9a9a" });
+      txt("content.js 를 확인해 주세요", W / 2, y + 34, 28, { align: CENTER, bold: true, color: "#ff9a9a" });
+      boot.problems.slice(0, 12).forEach((t, i) => txt(t, x + 50, y + 94 + i * 34, 18, { color: "#ffe9a8" }));
+      txt("content.js 를 고친 뒤 에디터에서 ▶ 를 다시 누르거나, 브라우저에서는 새로고침(F5) 해 주세요", x + 50, y + h - 70, 17, { color: "#d8d4ff" });
+      return;
+    }
     panel(x, y, w, h, { fill: "rgba(30,24,60,0.95)", border: "#ff9a9a" });
     txt("게임 파일을 불러오지 못했어요", W / 2, y + 34, 28, { align: CENTER, bold: true, color: "#ff9a9a" });
     [...FILES, ART].forEach((f, i) => {
@@ -642,6 +678,8 @@ scenes.title = {
       pop();
       if (overStart || overGear) cursor("pointer");
       txt("Enter 키 또는 [시작하기]", 20, 696, 11, { outline: "rgba(0,0,0,0.8)" });
+      const web = [...FILES, ART].filter((f) => loadState[f.name] === "인터넷").map((f) => f.name);   // 내 파일 대신 인터넷 파일을 쓰는 중이면 알려줘요
+      if (web.length) txt(`내 파일 대신 인터넷(GitHub)의 ${web.join(", ")} 로 실행 중이에요`, 20, 676, 11, { color: "#ffe27a", outline: "rgba(0,0,0,0.8)" });
       if (best != null) { panel(24, 24, 250, 44, { fill: "rgba(20,22,50,0.8)", border: "#ffe27a", shadow: false }); txt(`최고 퀴즈 점수  ${best} / ${QUIZ.length}`, 149, 46, 16, { align: CENTER, valign: CENTER, bold: true, color: "#ffe27a" }); }
       if (clicked(...START_BTN)) { sfx("select"); goTo("select"); }
       if (clicked(...GEAR_BTN)) { sfx("click"); showSettings(false); }
@@ -664,8 +702,8 @@ scenes.select = {
     if (settingsOpen) return;
     const n = numberKey();
     if (n >= 0 && n < CHARS.length) this.choose(n);
-    if (was("ArrowLeft") || was("KeyA")) this.choose((sel + 2) % 3);
-    if (was("ArrowRight") || was("KeyD")) this.choose((sel + 1) % 3);
+    if (was("ArrowLeft") || was("KeyA")) this.choose((sel + CHARS.length - 1) % CHARS.length);
+    if (was("ArrowRight") || was("KeyD")) this.choose((sel + 1) % CHARS.length);
     if (was("Escape")) return goTo("title");
     if (action()) return this.confirm();
     const f = tm.face;   // ---- 얼굴 인식으로 고르기 ----
@@ -813,8 +851,9 @@ scenes.game = {
     updateWorld(dt, { x: 0, y: 0 });
     const d = dlg, text = d.lines[d.idx];
     if (!d.done) {   // 글자가 한 글자씩 나타나요
+      const before = Math.floor(d.shown / 3);
       d.shown += dt * CONFIG.TEXT_SPEED;
-      if (Math.floor(d.shown) % 3 === 0) sfx("blip");
+      if (Math.floor(d.shown / 3) !== before) sfx("blip");     // 글자 3개마다 삑 소리 한 번
       if (d.shown >= text.length) { d.shown = text.length; d.done = true; }
     }
     if (action() || click) {   // Space / Enter / E / 클릭
@@ -851,7 +890,11 @@ scenes.game = {
       if (action()) this.pick(quiz.sel);                                                          // Space 로 확정
     } else if (quiz.state === "feedback" && quiz.t > 0.3 && (action() || click)) { click = null; this.next(); }
   },
-  closeQuiz() { mode = "explore"; quiz = null; cooldown.banjang = 1.5; },   // 닫자마자 반장이 다시 퀴즈를 시작하지 않게
+  closeQuiz() {   // 퀴즈 창을 닫으면 반장이 마무리 인사를 해요 (닫자마자 다시 퀴즈가 시작되지 않게 잠깐 쉬어요)
+    mode = "explore"; quiz = null; cooldown.banjang = 1.5;
+    const n = npcs.find((x) => x.id === SCRIPT.quiz.npc);
+    if (n && SCRIPT.quiz.after) this.say(n, SCRIPT.quiz.after);
+  },
 
   // ---- 매 프레임 그리기 ----
   draw() {
