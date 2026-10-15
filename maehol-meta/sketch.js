@@ -48,7 +48,7 @@ try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) 
 //      그래서 에디터가 올린 파일을 못 불러오거나 오래 걸려도 게임은 시작돼요. (고친 내용은 내 파일이 불러와져야 반영돼요)
 //      ※ 따옴표 친 파일 이름(content.js, data.js, art.png)은 이 파일 안에서 딱 한 번씩만 써야 해요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요.
 //        그래서 인터넷에서 가져올 때 쓰는 이름(name)은 글자를 이어 붙여서(join) 만들었어요.
-const SHA = "29eaef39ac4c818277e93902cb870c6f93b618c4";   // 인터넷에 올려 둔 파일 버전(커밋 번호)
+const SHA = "3acd305d2d5588eb1bed65a77c4fa21048a3e4b4";   // 인터넷에 올려 둔 파일 버전(커밋 번호)
 const ONLINE = [`https://raw.githubusercontent.com/MinsungKim805/Claude-projects/${SHA}/maehol-meta/`, `https://cdn.jsdelivr.net/gh/MinsungKim805/Claude-projects@${SHA}/maehol-meta/`];
 const FILES = [   // src = 내 파일(에디터가 주소로 바꿔 줘요), name = 인터넷에서 가져올 때 쓰는 이름, key = 파일이 만들어 주는 이름
   { src: "content.js", name: ["content", "js"].join("."), key: "MAEHOL_QUIZ", what: "설정·대사·퀴즈" },
