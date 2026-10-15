@@ -43,8 +43,9 @@ let charKey = "donghun";                          // 내가 고른 캐릭터
 let done = {}, quizDone = false, best = null;     // 소개를 끝낸 구역, 퀴즈를 풀었는지, 최고 점수
 try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) {}
 
-// ---- 파일 불러오기: 파일이 안 불러와질 때(예: p5 웹 에디터에서 큰 파일이 올라가지 못했을 때)를 대비해서,
-//      같은 파일을 인터넷(GitHub 에 올려 둔 것)에서 대신 가져와요. 고친 내용을 쓰고 싶으면 내 파일이 제대로 올라가 있어야 해요.
+// ---- 파일 불러오기: 파일(content.js, data.js, art.png)을 여러 곳에서 동시에 가져와서, 먼저 성공한 걸 써요.
+//      1) 내 파일(p5 웹 에디터에 올린 것)  2) 3초 안에 안 되면 GitHub  3) 또 3초 뒤 jsDelivr(GitHub 파일을 대신 내주는 곳). 앞의 것이 실패하면 바로 다음 것을 시작해요.
+//      그래서 에디터가 올린 파일을 못 불러오거나 오래 걸려도 게임은 시작돼요. (고친 내용은 내 파일이 불러와져야 반영돼요)
 //      ※ 따옴표 친 파일 이름(content.js, data.js, art.png)은 이 파일 안에서 딱 한 번씩만 써야 해요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요.
 //        그래서 인터넷에서 가져올 때 쓰는 이름(name)은 글자를 이어 붙여서(join) 만들었어요.
 const SHA = "6f84d40c1231aeff34526c2bb23402db58224b38";   // 인터넷에 올려 둔 파일 버전(커밋 번호)
@@ -54,44 +55,63 @@ const FILES = [   // src = 내 파일(에디터가 주소로 바꿔 줘요), nam
   { src: "data.js", name: ["data", "js"].join("."), key: "MAEHOL_MAP", what: "맵 데이터·글꼴" },
 ];
 const ART = { src: "art.png", name: ["art", "png"].join("."), what: "그림 묶음" };
-const loadState = {}, tried = {};   // loadState: 파일 → "내 파일" / "인터넷" / "없음",  tried: 파일 → 실패한 이유 목록(실패 화면에 보여 줘요)
+const loadState = {}, tried = {}, phase = {}, manual = {};   // loadState: 파일 → "내 파일" / "인터넷" / "내 컴퓨터" / "없음",  tried: 실패한 이유들(실패 화면에 보여 줘요),  phase: 지금 하는 일,  manual: 내 컴퓨터에서 직접 고른 파일
 const hostOf = (u) => { try { return new URL(u, document.baseURI).host; } catch (e) { return "?"; } };
-const note = (f, u, why) => (tried[f.name] = tried[f.name] || []).push(`${hostOf(u)} ${why}`);
+const note = (f, u, why) => (tried[f.name] = tried[f.name] || []).push(`${u.startsWith("blob:") ? "내 컴퓨터" : hostOf(u)} ${why}`);
+const runScript = (text) => { const el = document.createElement("script"); el.text = text; document.head.appendChild(el); };   // 글자로 받은 코드를 실행해요
 
-function addScript(src, text) {   // script 태그를 만들어서 실행해요 (text 가 있으면 그 글자를 바로 실행)
+// 가져오기를 하나씩 gap(ms) 간격으로 시작해서 먼저 성공한 값을 돌려줘요. 앞의 것이 실패하면 기다리지 않고 바로 다음 것을 시작해요. (모두 실패하면 null)
+function firstOk(tasks, gap = 3000) {
   return new Promise((ok) => {
-    const el = document.createElement("script");
-    if (text != null) { el.text = text; document.head.appendChild(el); return ok(true); }
-    el.onload = () => ok(true); el.onerror = () => ok(false); el.src = src; document.head.appendChild(el);
+    let next = 0, alive = 0, done = false, timer = 0;
+    const end = (v) => { done = true; clearTimeout(timer); ok(v); };
+    const start = () => {
+      clearTimeout(timer);
+      if (done || next >= tasks.length) return;
+      const task = tasks[next++]; alive++;
+      timer = setTimeout(start, gap);
+      Promise.resolve().then(task).catch(() => null).then((v) => { alive--; if (done) return; if (v) end(v); else if (next < tasks.length) start(); else if (!alive) end(null); });
+    };
+    start();
   });
 }
-async function getScript(src, f) {   // 파일을 글자로 읽어서 실행해요. 안 되면(주소가 http 로 시작할 때만) script 태그로 한 번 더 시도해요
+const sources = (f) => (manual[f.name] ? [["내 컴퓨터", manual[f.name]]] : [["내 파일", f.src], ...ONLINE.map((base) => ["인터넷", base + f.name])]);   // [어디서, 주소]
+const fetchFirst = (f, get) => firstOk(sources(f).map(([who, src]) => async () => { phase[f.name] = who + "에서 받는 중"; const v = await get(src, f); return v && [v, who]; }));   // 성공하면 [값, 어디서]
+
+async function fetchText(src, f) {   // 주소의 글자(코드)를 받아요. 실패하면 이유를 적어 두고 null
   try {
-    const r = await fetch(src);
+    const r = await fetch(src, { signal: AbortSignal.timeout?.(40000) });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const t = await r.text();
     if (t.trimStart()[0] === "<") throw new Error("파일 대신 웹페이지가 왔어요");
-    return addScript(null, t);
-  } catch (e) { note(f, src, String(e.message || e).slice(0, 40)); }
-  if (/^https?:/.test(src) && !(await addScript(src))) note(f, src, "script 태그로도 실패");
+    return t;
+  } catch (e) { note(f, src, String(e.message || e).slice(0, 40)); return null; }
 }
-async function loadFile(f) {
-  if (window[f.key]) return "내 파일";               // index.html 이 이미 불러왔어요
-  await getScript(f.src, f);
+function tagScript(src, f) {   // script 태그로 불러와 실행해요 (fetch 가 막히는 내 컴퓨터의 file:// 주소 같을 때)
+  return new Promise((done) => {
+    const el = document.createElement("script"), end = (ok) => { clearTimeout(t); if (!ok) note(f, src, "script 태그로도 실패"); done(ok || null); }, t = setTimeout(() => end(false), 40000);
+    el.onload = () => end(true); el.onerror = () => end(false); el.src = src; document.head.appendChild(el);
+  });
+}
+async function loadFile(f) {   // content.js, data.js: 이미 불러와져 있으면 그대로 쓰고, 아니면 내 파일 → GitHub → jsDelivr 순서로 겨뤄서 가져와 실행해요
   if (window[f.key]) return "내 파일";
-  for (const base of ONLINE) { await getScript(base + f.name, f); if (window[f.key]) return "인터넷"; }
-  return "없음";
+  const got = await firstOk(sources(f).map(([who, src]) => async () => {
+    phase[f.name] = who + "에서 받는 중";
+    const v = (await fetchText(src, f)) ?? (who === "내 파일" && (await tagScript(src, f)));   // 내 파일은 글자로 못 읽으면 태그로 한 번 더
+    return v === true && !window[f.key] ? null : v && [v, who];
+  }));
+  if (got && got[0] !== true) runScript(got[0]);
+  return window[f.key] ? (got ? got[1] : "내 파일") : "없음";
 }
 
 // ---- 그림 불러오기: 모든 그림은 png 한 장에 묶여 있어요. 불러온 뒤 조각조각 잘라서 써요.
 //      IMG.obj["desk"] = 책상 그림, IMG.spr["donghun"] = 동훈 시트, IMG.ui["star"] = 별, IMG.bg = 맵 배경, IMG.title = 시작 화면
 const IMG = { obj: {}, spr: {}, ui: {}, bg: null, title: null };
-const loadSheet = (src) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => { note(ART, src, "그림 불러오기 실패"); ok(null); }; im.src = src; });
-async function loadImages() {
-  let sheet = await loadSheet(ART.src), from = "내 파일";
-  for (const base of ONLINE) if (!sheet) { sheet = await loadSheet(base + ART.name); from = "인터넷"; }
-  loadState[ART.name] = sheet ? from : "없음";
-  if (!sheet || !LIST) return;
+const loadSheet = (src, f) => new Promise((ok) => {
+  const im = new Image(), fail = (why) => { clearTimeout(t); note(f, src, why); ok(null); }, t = setTimeout(() => fail("시간 초과"), 40000);
+  im.onload = () => { clearTimeout(t); ok(im); }; im.onerror = () => fail("그림 불러오기 실패"); im.src = src;
+});
+function sliceSheet(sheet) {   // 묶음 그림을 조각조각 잘라요 (data.js 의 LIST 가 조각 위치를 알려줘요)
   for (const name in LIST.rects) {
     const [x, y, w, h] = LIST.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
     cut.getContext("2d").drawImage(sheet, x, y, w, h, 0, 0, w, h);
@@ -99,6 +119,16 @@ async function loadImages() {
     if (kind === "img") IMG[key] = cut;
     else (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
   }
+}
+
+// 인터넷도 안 될 때의 마지막 방법: 내 컴퓨터에 있는 파일(zip 을 푼 폴더의 content.js, data.js, art.png)을 직접 골라요
+function pickFiles() {
+  const el = Object.assign(document.createElement("input"), { type: "file", multiple: true, accept: ".js,.png" });
+  el.onchange = () => {
+    for (const file of el.files) { const f = [...FILES, ART].find((x) => file.name.toLowerCase().startsWith(x.name.split(".")[0])); if (f) manual[f.name] = URL.createObjectURL(file); }
+    scenes.boot.enter();
+  };
+  el.click();
 }
 
 // 캐릭터 시트에서 한 장면을 오려서 그려요. 시트는 가로 3프레임(서기, 왼발, 오른발) x 세로 4방향이고,
@@ -547,15 +577,18 @@ function goTo(name, arg) { scene = name; clock = 0; scenes[name].enter?.(arg); }
 // ---------------------------------------------------------------------
 //  불러오기 화면
 // ---------------------------------------------------------------------
-let boot = { step: 0, state: "loading" };   // step: 끝낸 단계 수(0~3), state: loading → ok / fail
+let boot = { step: 0, state: "loading" };   // step: 끝낸 일의 수(0~4), state: loading → ok / fail
 scenes.boot = {
   enter() {
     boot = { step: 0, state: "loading" };
-    Object.keys(tried).forEach((k) => delete tried[k]);
+    [loadState, tried, phase].forEach((o) => Object.keys(o).forEach((k) => delete o[k]));
     (async () => {
-      for (const f of FILES) { loadState[f.name] = await loadFile(f); boot.step++; }
+      const tasks = FILES.map(async (f) => { loadState[f.name] = await loadFile(f); boot.step++; });   // 세 파일을 동시에 가져와요
+      tasks.push(fetchFirst(ART, loadSheet).then((got) => { loadState[ART.name] = got ? got[1] : "없음"; boot.step++; return got; }));
+      const sheet = (await Promise.all(tasks)).at(-1)?.[0];
       [MAP, LIST, SCRIPT, QUIZ] = [window.MAEHOL_MAP, window.MAEHOL_ASSETS, window.MAEHOL_SCRIPT, window.MAEHOL_QUIZ];
-      await Promise.all(["22px Galmuri11", "bold 22px Galmuri11", "11px Galmuri11"].map((f) => document.fonts.load(f, "매홀중학교 ABC")).concat(loadImages())).catch(() => {});   // 글꼴, 그림
+      if (sheet && LIST) sliceSheet(sheet);
+      await Promise.all(["22px Galmuri11", "bold 22px Galmuri11", "11px Galmuri11"].map((f) => document.fonts.load(f, "매홀중학교 ABC"))).catch(() => {});   // 글꼴
       boot.step++;
       boot.state = MAP && LIST && SCRIPT && QUIZ && window.CONFIG && IMG.bg && IMG.title ? "ok" : "fail";
     })();
@@ -564,10 +597,14 @@ scenes.boot = {
   draw() {
     background("#14101f");
     if (boot.state === "fail") return this.drawFail();
-    txt("메타 투어 매홀", W / 2, H / 2 - 80, 44, { align: CENTER, bold: true, color: "#ffe27a" });
-    const p = boot.step / (FILES.length + 1), online = Object.values(loadState).includes("인터넷");
-    push(); noStroke(); fill("rgba(255,255,255,0.15)"); rect(W / 2 - 220, H / 2 + 10, 440, 18, 9); fill("#4fd17a"); rect(W / 2 - 220, H / 2 + 10, 440 * p, 18, 9); pop();   // 진행 막대
-    txt(`불러오는 중... ${Math.round(p * 100)}%` + (online ? "  (인터넷에서 가져오고 있어요)" : ""), W / 2, H / 2 + 50, 22, { align: CENTER, color: "#d8d4ff" });
+    txt("메타 투어 매홀", W / 2, H / 2 - 110, 44, { align: CENTER, bold: true, color: "#ffe27a" });
+    const p = boot.step / (FILES.length + 2);
+    push(); noStroke(); fill("rgba(255,255,255,0.15)"); rect(W / 2 - 220, H / 2 - 20, 440, 18, 9); fill("#4fd17a"); rect(W / 2 - 220, H / 2 - 20, 440 * p, 18, 9); pop();   // 진행 막대
+    txt(`불러오는 중... ${Math.round(p * 100)}%  (${Math.floor(clock)}초)`, W / 2, H / 2 + 20, 22, { align: CENTER, color: "#d8d4ff" });
+    [...FILES, ART].forEach((f, i) => {   // 파일마다 지금 어디서 받고 있는지
+      const st = loadState[f.name];
+      txt(`${f.what}   ${st ? "✓ " + st : phase[f.name] || "기다리는 중"}`, W / 2, H / 2 + 70 + i * 28, 17, { align: CENTER, color: st ? "#4fd17a" : "#b9b5e6" });
+    });
   },
   drawFail() {   // 파일이 없어서 시작할 수 없을 때: 뭐가 안 불러와졌는지, 왜 그런지, 어떻게 하면 되는지 알려줘요
     const [x, y, w, h] = [150, 60, 980, 600];
@@ -579,9 +616,10 @@ scenes.boot = {
       txt(st === "없음" ? "✗ 없음" : `✓ ${st}`, x + w - 50, yy, 22, { align: RIGHT, color: st === "없음" ? "#ff9a9a" : "#4fd17a" });
       if (st === "없음") wrapText((tried[f.name] || []).join("  ·  "), w - 100, 13).slice(0, 3).forEach((l, j) => txt(l, x + 50, yy + 26 + j * 17, 13, { color: "#b9b5e6" }));   // 실패한 이유
     });
-    ["이렇게 해 보세요", "1. 인터넷이 연결되어 있는지 확인해요", "2. 학교·회사 인터넷에서는 github, amazonaws 같은 주소가 막혀 있을 수 있어요. 집 인터넷이나 휴대폰 핫스팟으로 해 보세요",
-      "3. p5 웹 에디터의 Sketch Files 에 index.html, sketch.js, content.js, data.js, art.png 가 모두 있는지 봐요", "4. 위 빨간 글자(실패한 이유)를 알려 주시면 원인을 찾을 수 있어요"].forEach((s, i) => txt(s, x + 50, y + 340 + i * 34, i ? 17 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
-    if (button("다시 시도", W / 2 - 110, y + h - 76, 220, 56, { size: 24 })) this.enter();
+    ["이렇게 해 보세요", "1. 인터넷이 연결되어 있는지 확인하고 [다시 시도]를 눌러요", "2. 학교·회사 인터넷에서는 github, amazonaws 같은 주소가 막혀 있을 수 있어요. 집 인터넷이나 휴대폰 핫스팟으로 해 보세요",
+      "3. 안 되면 [내 컴퓨터에서 파일 고르기]로 zip 을 푼 폴더의 content.js, data.js, art.png 를 직접 골라요", "4. 위 빨간 글자(실패한 이유)를 알려 주시면 원인을 찾을 수 있어요"].forEach((s, i) => txt(s, x + 50, y + 340 + i * 34, i ? 17 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
+    if (button("다시 시도", W / 2 - 330, y + h - 76, 250, 56, { size: 24 })) this.enter();
+    if (button("내 컴퓨터에서 파일 고르기", W / 2 - 60, y + h - 76, 390, 56, { size: 24, ...BLUE })) pickFiles();
   },
 };
 
