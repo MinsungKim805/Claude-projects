@@ -15,6 +15,7 @@
 //  파일은 모두 폴더 없이 한곳에 있어요:
 //    index.html (화면 틀) · sketch.js (이 파일, 게임 코드) · content.js (★ 직접 고치는 설정·대사·퀴즈)
 //    data.js (맵 데이터 + 글꼴, 자동으로 만들어져요) · 그림 묶음 png 한 장 (모든 그림이 들어 있어요)
+//    ※ data.js 와 png 가 없으면 인터넷(GitHub)에서 대신 가져와서 실행해요. (아래 '파일 불러오기')
 //  ※ p5.js 이름(text, rect, select, dist 등)과 겹치지 않게 이름을 지었어요.
 // =====================================================================
 
@@ -24,8 +25,7 @@
 // =====================================================================
 const [W, H, Z, T] = [1280, 720, 2, 32];   // 화면 가로·세로, 맵 확대 배율, 타일(한 칸) 크기(픽셀)
 const VW = W / Z, VH = H / Z;                // 화면에 보이는 맵의 크기(확대 전)
-const MAP = window.MAEHOL_MAP, LIST = window.MAEHOL_ASSETS;   // 맵 데이터, 그림 위치 목록 (data.js)
-const SCRIPT = window.MAEHOL_SCRIPT, QUIZ = window.MAEHOL_QUIZ;   // 대사, 퀴즈 (content.js)
+let MAP, LIST, SCRIPT, QUIZ;   // 맵 데이터, 그림 위치 목록(data.js), 대사, 퀴즈(content.js) — 바로 아래 파일 불러오기 코드가 채워 줘요
 const FONT = "Galmuri11";
 
 const AREAS = ["playground", "cafeteria", "gym", "library"];   // 소개를 들어야 하는 구역 (이 순서대로)
@@ -42,27 +42,49 @@ let charKey = "donghun";                          // 내가 고른 캐릭터
 let done = {}, quizDone = false, best = null;     // 소개를 끝낸 구역, 퀴즈를 풀었는지, 최고 점수
 try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) {}
 
+// ---- 파일 불러오기: 필요한 파일이 빠졌을 때(예: p5 웹 에디터에서 로그인을 안 해서 큰 파일을 못 올렸을 때)를 대비해서,
+//      없는 파일은 인터넷(GitHub 에 올려 둔 같은 파일)에서 대신 가져와요. 파일을 고쳐 쓰고 싶으면 내 파일을 올려 두세요.
+//      ※ 파일 이름(content.js, data.js, art.png)은 이 파일 안에서 딱 한 번씩만 써야 해요 (p5 웹 에디터가 올린 파일의 주소로 바꿔 주기 때문이에요)
+const ONLINE = "https://raw.githubusercontent.com/MinsungKim805/Claude-projects/6f84d40c1231aeff34526c2bb23402db58224b38/maehol-meta/";
+const FILES = [["content.js", "MAEHOL_QUIZ", "설정·대사·퀴즈"], ["data.js", "MAEHOL_MAP", "맵 데이터·글꼴"]];   // [파일 이름, 파일이 만들어 주는 이름, 설명]
+const ART = "art.png";
+const loadState = {};   // 파일 이름 → "내 파일" / "인터넷" / "없음"
+
+function addScript(src, text) {   // script 태그를 만들어서 실행해요 (text 가 있으면 그 글자를 바로 실행)
+  return new Promise((ok) => {
+    const el = document.createElement("script");
+    if (text != null) { el.text = text; document.head.appendChild(el); return ok(true); }
+    el.onload = () => ok(true); el.onerror = () => ok(false); el.src = src; document.head.appendChild(el);
+  });
+}
+async function getScript(src) {   // 파일을 글자로 읽어서 실행해요. 안 되면(주소가 http 로 시작할 때만) script 태그로 한 번 더 시도해요
+  try { const r = await fetch(src), t = await r.text(); if (r.ok && t.trimStart()[0] !== "<") return addScript(null, t); } catch (e) {}
+  return /^https?:/.test(src) && addScript(src);
+}
+async function loadFile([file, key]) {
+  if (window[key]) return "내 파일";               // index.html 이 이미 불러왔어요
+  await getScript(file);
+  if (window[key]) return "내 파일";
+  await getScript(ONLINE + file);
+  return window[key] ? "인터넷" : "없음";
+}
+
 // ---- 그림 불러오기: 모든 그림은 png 한 장에 묶여 있어요. 불러온 뒤 조각조각 잘라서 써요.
 //      IMG.obj["desk"] = 책상 그림, IMG.spr["donghun"] = 동훈 시트, IMG.ui["star"] = 별, IMG.bg = 맵 배경, IMG.title = 시작 화면
 const IMG = { obj: {}, spr: {}, ui: {}, bg: null, title: null };
-let loaded = 0, total = 0, failed = 0;
-function loadImages() {
-  total++;
-  return new Promise((ok) => {
-    const sheet = new Image();
-    sheet.onload = () => {
-      for (const name in LIST.rects) {
-        const [x, y, w, h] = LIST.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
-        cut.getContext("2d").drawImage(sheet, x, y, w, h, 0, 0, w, h);
-        const [kind, key] = name.split(":");   // 이름 앞에 spr: ui: img: 가 붙어 있으면 종류를 나타내요
-        if (kind === "img") IMG[key] = cut;
-        else (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
-      }
-      loaded++; ok();
-    };
-    sheet.onerror = () => { loaded++; failed++; ok(); };
-    sheet.src = "art.png";   // ※ 이 파일 이름은 이 파일 안에서 딱 한 번만 써야 해요 (p5 웹 에디터가 올린 파일의 주소로 바꿔 줘요)
-  });
+const loadSheet = (src) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
+async function loadImages() {
+  let sheet = await loadSheet(ART);
+  loadState[ART] = sheet ? "내 파일" : "없음";
+  if (!sheet && (sheet = await loadSheet(ONLINE + ART))) loadState[ART] = "인터넷";
+  if (!sheet || !LIST) return;
+  for (const name in LIST.rects) {
+    const [x, y, w, h] = LIST.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
+    cut.getContext("2d").drawImage(sheet, x, y, w, h, 0, 0, w, h);
+    const [kind, key] = name.split(":");   // 이름 앞에 spr: ui: img: 가 붙어 있으면 종류를 나타내요
+    if (kind === "img") IMG[key] = cut;
+    else (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
+  }
 }
 
 // 캐릭터 시트에서 한 장면을 오려서 그려요. 시트는 가로 3프레임(서기, 왼발, 오른발) x 세로 4방향이고,
@@ -511,19 +533,39 @@ function goTo(name, arg) { scene = name; clock = 0; scenes[name].enter?.(arg); }
 // ---------------------------------------------------------------------
 //  불러오기 화면
 // ---------------------------------------------------------------------
-let fontsReady = false, assetsReady = false;
+let boot = { step: 0, state: "loading" };   // step: 끝낸 단계 수(0~3), state: loading → ok / fail
 scenes.boot = {
   enter() {
-    Promise.all(["22px Galmuri11", "bold 22px Galmuri11", "11px Galmuri11"].map((f) => document.fonts.load(f, "매홀중학교 ABC"))).finally(() => (fontsReady = true));   // 글꼴 먼저
-    loadImages().then(() => (assetsReady = true));
+    boot = { step: 0, state: "loading" };
+    (async () => {
+      for (const f of FILES) { loadState[f[0]] = await loadFile(f); boot.step++; }
+      [MAP, LIST, SCRIPT, QUIZ] = [window.MAEHOL_MAP, window.MAEHOL_ASSETS, window.MAEHOL_SCRIPT, window.MAEHOL_QUIZ];
+      await Promise.all(["22px Galmuri11", "bold 22px Galmuri11", "11px Galmuri11"].map((f) => document.fonts.load(f, "매홀중학교 ABC")).concat(loadImages())).catch(() => {});   // 글꼴, 그림
+      boot.step++;
+      boot.state = MAP && LIST && SCRIPT && QUIZ && window.CONFIG && IMG.bg && IMG.title ? "ok" : "fail";
+    })();
   },
-  update() { if (fontsReady && assetsReady && clock > 0.4) { initWorld(); goTo("title"); } },
+  update() { if (boot.state === "ok" && clock > 0.4) { initWorld(); goTo("title"); } },
   draw() {
     background("#14101f");
-    const p = total ? loaded / total : 0;
+    if (boot.state === "fail") return this.drawFail();
     txt("메타 투어 매홀", W / 2, H / 2 - 80, 44, { align: CENTER, bold: true, color: "#ffe27a" });
+    const p = boot.step / (FILES.length + 1), online = Object.values(loadState).includes("인터넷");
     push(); noStroke(); fill("rgba(255,255,255,0.15)"); rect(W / 2 - 220, H / 2 + 10, 440, 18, 9); fill("#4fd17a"); rect(W / 2 - 220, H / 2 + 10, 440 * p, 18, 9); pop();   // 진행 막대
-    txt(`불러오는 중... ${Math.round(p * 100)}%` + (failed ? `  (이미지 ${failed}개 실패: 폴더 구조를 확인해 주세요)` : ""), W / 2, H / 2 + 50, 22, { align: CENTER, color: failed ? "#ff9a9a" : "#d8d4ff" });
+    txt(`불러오는 중... ${Math.round(p * 100)}%` + (online ? "  (인터넷에서 가져오고 있어요)" : ""), W / 2, H / 2 + 50, 22, { align: CENTER, color: "#d8d4ff" });
+  },
+  drawFail() {   // 파일이 없어서 시작할 수 없을 때: 뭐가 없는지, 어떻게 하면 되는지 알려줘요
+    const [x, y, w, h] = [190, 170, 900, 520];
+    panel(x, y, w, h, { fill: "rgba(30,24,60,0.95)", border: "#ff9a9a" });
+    txt("게임 파일을 불러오지 못했어요", W / 2, y + 34, 28, { align: CENTER, bold: true, color: "#ff9a9a" });
+    [...FILES.map((f) => [f[0], f[2]]), [ART, "그림 묶음"]].forEach(([name, what], i) => {
+      const st = loadState[name] || "없음";
+      txt(`${name.split("/").pop()}  (${what})`, x + 60, y + 90 + i * 34, 22, { color: "#ffffff" });
+      txt(st === "없음" ? "✗ 없음" : `✓ ${st}`, x + w - 60, y + 90 + i * 34, 22, { align: RIGHT, color: st === "없음" ? "#ff9a9a" : "#4fd17a" });
+    });
+    ["이렇게 해 보세요", "1. 인터넷이 연결되어 있는지 확인해요 (없는 파일은 GitHub 에서 가져와요)", "2. p5 웹 에디터의 Sketch Files 에 index.html, sketch.js, content.js, data.js 가 모두 있는지 봐요",
+      "3. 파일 이름이 data-1.js, index-1.html 처럼 바뀌어 있으면 지우고 다시 올려요", "4. 에디터의 기본 index.html, sketch.js 를 먼저 지우고 올려요"].forEach((s, i) => txt(s, x + 60, y + 250 + i * 36, i ? 19 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
+    if (button("다시 시도", W / 2 - 110, y + h - 80, 220, 56, { size: 24 })) this.enter();
   },
 };
 
@@ -871,7 +913,10 @@ scenes.game = {
 // =====================================================================
 function setup() {
   const cv = createCanvas(W, H);
-  cv.parent("game");                   // 1280 x 720 그림판을 index.html 의 <div id="game"> 안에 만들어요
+  if (!document.getElementById("game")) {   // index.html 이 기본 파일이어도 화면이 맞도록 직접 꾸며요
+    document.body.insertAdjacentHTML("beforeend", '<div id="game"></div><style>html,body{margin:0;height:100%;background:#120d1a;overflow:hidden}#game{width:100%;height:100%;display:flex;align-items:center;justify-content:center}canvas{image-rendering:pixelated;width:min(100vw,177.78vh)!important;height:auto!important;display:block;outline:none}</style>');
+  }
+  cv.parent("game");                   // 1280 x 720 그림판을 <div id="game"> 안에 만들어요
   cv.elt.tabIndex = 0; focusGame();    // 키보드를 받을 수 있게 해요
   pixelDensity(1);
   noSmooth();                          // 그림을 확대해도 흐려지지 않게 (픽셀아트!)

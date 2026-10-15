@@ -11,7 +11,7 @@ p5 웹 에디터의 업로드 규칙(한 번에 6개, 파일당 5MB, 글꼴은 t
 """
 import base64
 import json
-import os
+import os, re
 import zipfile
 
 from PIL import Image
@@ -95,6 +95,11 @@ maehol-meta 폴더 안의 파일 5개(index.html, sketch.js, content.js, data.js
 - 대사/퀴즈는 에디터에서 content.js 를 열어 고치고 재생을 다시 눌러요.
 - 키보드가 안 먹으면 게임 화면을 한 번 클릭하세요. (화면을 누른 채로도 걸을 수 있어요)
 - 내 컴퓨터에서 하려면 5개 파일을 한 폴더에 두고 index.html 을 더블클릭해요. (인터넷 필요)
+
+[안 될 때]
+- data.js 나 art.png 가 없거나 이름이 data-1.js 처럼 바뀌어 있으면, 게임이 같은 파일을 인터넷(GitHub)에서 대신 가져와요.
+  (그래서 인터넷만 되면 시작은 돼요. 내가 그림이나 맵을 고쳤다면 내 파일을 제대로 올려야 반영돼요.)
+- 그래도 안 되면 화면에 어떤 파일이 없는지 나와요. Sketch Files 에서 파일 이름들을 확인하고, 이상한 이름의 파일은 지우고 다시 올려요.
 """
 
 
@@ -114,11 +119,13 @@ def write_game(assets_dir, MAP, objects, sprites, ui, has_title):
     art.save(os.path.join(GAME, "art.png"), optimize=True)
     with open(os.path.join(GAME, "data.js"), "w", encoding="utf-8") as f:
         f.write(build_data(MAP, objects, rects))
-    # 웹 에디터는 파일 이름을 '처음 나온 곳' 한 군데만 올린 파일 주소로 바꿔요 → sketch.js 안에 art.png 가 딱 한 번만 있어야 해요
+    # 웹 에디터는 sketch.js 안에서 따옴표로 감싼 파일 이름("art.png" 처럼)을 올린 파일의 주소로 바꿔요 → 따옴표 친 이름이 각각 딱 한 번만 있어야 해요
     with open(os.path.join(GAME, "sketch.js"), encoding="utf-8") as f:
-        n = f.read().count("art.png")
-    if n != 1:
-        print(f"!! sketch.js 안에 art.png 라는 글자가 {n}번 있어요. 주석에도 쓰지 말고 딱 한 번만 쓰세요.")
+        code = f.read()
+    for name in ("art.png", "data.js", "content.js"):
+        n = len(re.findall(r"""["']""" + re.escape(name) + r"""["']""", code))
+        if n != 1:
+            print(f"!! sketch.js 안에 따옴표 친 {name} 이 {n}번 있어요. 딱 한 번만 쓰세요. (주석·안내 글에는 따옴표 없이 써요)")
     for name in ("sketch.js", "content.js", "index.html"):     # 80KB 가 넘는 js 는 웹 에디터에서 고칠 수 없는 파일로 올라가요
         size = os.path.getsize(os.path.join(GAME, name))
         if size > 78000:
