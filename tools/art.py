@@ -564,6 +564,50 @@ def hoop():
     return ret(s, 2, 1)
 
 
+def hoop_end(top):
+    """세로 코트 끝에 달린 농구 골대 (가로 2칸). top=True: 위쪽 끝(백보드가 위), False: 아래쪽 끝(백보드가 아래)."""
+    W, H = 2 * T, 40
+    s = S(W, H + PAD)
+    board, rim = c("#ffffff"), c("#ff6a2a")
+    def net(y0):
+        for x in range(24, 41, 4):
+            s.line((x, y0), (x + 1 if x < 32 else x - 1, y0 + 8), c("#f4f6ff"))
+        s.line((24, y0 + 3), (40, y0 + 3), c("#dfe6f4")); s.line((26, y0 + 6), (38, y0 + 6), c("#dfe6f4"))
+    if top:
+        s.rr(14, 0, 49, 15, board, c("#7480a8"), 3)
+        s.rr(26, 4, 37, 11, board, c("#ee4a42"), 0)
+        s.r(24, 16, 39, 17, rim)
+        net(18)
+        s.r(14, 14, 49, 15, c("#dfe5f3"))
+        s.rr(29, 26, 34, 30, c("#9aa3b8"), None, 0)
+    else:
+        net(2)
+        s.r(24, 12, 39, 13, rim)
+        s.rr(14, 15, 49, 30, board, c("#7480a8"), 3)
+        s.rr(26, 19, 37, 26, board, c("#ee4a42"), 0)
+        s.r(15, 27, 48, 29, c("#dfe5f3"))
+    s.shadow(12, 51, 34)
+    return ret(s, 2, 1)
+
+
+def door_room(label, col):
+    """체육관 옆 작은 방(준비실 등)의 문. 위에 이름표가 붙어 있어요. (가로 2칸, 세로 2칸)"""
+    s = S(2 * T, 2 * T)
+    wood, fo = c("#d9955a"), c("#6e4326")
+    s.rr(2, 8, 61, 63, c("#f6c08a"), fo, 2)                                    # 문틀
+    s.rr(6, 12, 57, 63, wood, fo, 2, hi=c("#f6c08a"))                          # 문짝
+    s.rr(11, 17, 52, 32, c("#bfe8ff"), c("#6a8aa8"), 1)                        # 유리창
+    s.line((14, 29), (22, 20), c("#ffffff"))
+    s.rr(11, 37, 52, 59, shade(wood, 0.92), shade(wood, 0.65), 1)              # 아래 판넬
+    s.r(47, 44, 49, 52, c("#ffd96a"))                                           # 손잡이
+    base = c("#" + col)
+    t = text_image(label, c("#ffffff"), FONT9, 9)
+    pw = max(24, t.width + 10)
+    s.rr(32 - pw // 2, 0, 32 + pw // 2, 11, base, ol_of(base), 2, hi=lighten(base, 0.35))
+    s.paste(t, 32 - t.width // 2, 1)
+    return decor_ret(s, 2, 2)
+
+
 def goal(n):
     W = n * T
     s = S(W, 58 + PAD)
@@ -1132,37 +1176,30 @@ def podium(w=4, d=3):
     return ret(s, w, d)
 
 
-def ctable(rows, top):
-    """급식실 긴 식탁: 양옆에 등받이 없는 둥근 의자가 붙어 있는 일체형."""
-    W, H = 4 * T, rows * T
-    s = S(W, H + 6 + PAD)
+def rtable(w, top, tray=False):
+    """급식실 가로 식탁 한 칸: 가운데 식탁 + 양쪽 끝에 붙은 주황색 둥근 일체형 의자. (가로 w칸, 세로 1칸)"""
+    W, H = w * T, T
+    s = S(W, H + PAD)
     tcol = {"cream": "#f8f0dc", "mint": "#d8f6e6", "peach": "#ffe4d0"}[top]
     t, to = c(tcol), c("#8a7a5a")
-    cols = ["#ee6a5a", "#ffc43a", "#58a0f0", "#79cc4a", "#ff8fb8", "#ff9a3c", "#a07ae0", "#4fd0b0"]
-    for r in range(rows):
-        cy = 10 + r * T + 6
-        for (cx, side) in ((16, -1), (W - 17, 1)):
-            x0 = 24 if side < 0 else W - 36
-            s.rr(x0, cy - 1, x0 + 11, cy + 3, c("#9aa3b8"), ol_of(c("#9aa3b8")), 1)        # 의자 팔
-            col = c(cols[(r + (0 if side < 0 else 3)) % len(cols)])
-            s.ell(cx - 10, cy - 7, cx + 10, cy + 11, shade(col, 0.78), ol_of(col))         # 의자 옆면
-            s.ell(cx - 10, cy - 9, cx + 10, cy + 7, col, ol_of(col))                       # 의자 윗면
-            s.ell(cx - 6, cy - 7, cx + 1, cy - 2, lighten(col, 0.5))
-    s.rr(34, 4, W - 35, H + 3, t, to, 4, hi=c("#ffffff"))                              # 식탁 윗면
-    s.rr(34, H - 4, W - 35, H + 5, shade(t, 0.82), to, 2)                              # 식탁 앞쪽 두께
-    s.r(36, H - 3, W - 37, H - 3, lighten(t, 0.3))
-    for r in range(rows):                                                                # 식판
-        if (r + (1 if top == "mint" else 0)) % 2 == 0:
-            y0 = 10 + r * T
-            s.rr(38, y0, 55, y0 + 12, c("#fdfbf4"), c("#a79bb8"), 2)
-            s.rr(40, y0 + 2, 46, y0 + 7, c("#ffffff"), c("#c0b8d0"), 1)
-            s.rr(48, y0 + 2, 53, y0 + 6, c("#ee5a4a"), None, 1)
-            s.rr(40, y0 + 8, 47, y0 + 10, c("#5cc27a"), None, 0)
-            s.rr(72, y0 + 4, 89, y0 + 16, c("#fdfbf4"), c("#a79bb8"), 2)
-            s.rr(74, y0 + 6, 80, y0 + 11, c("#ffffff"), c("#c0b8d0"), 1)
-            s.rr(82, y0 + 6, 87, y0 + 10, c("#ffb43a"), None, 1)
-    s.shadow(8, W - 9, 56)
-    return ret(s, 4, rows)
+    orange = c("#ff9a3c")
+    cy = 16
+    for (cx, side) in ((16, -1), (W - 17, 1)):
+        x0 = 24 if side < 0 else W - 36
+        s.rr(x0, cy - 1, x0 + 11, cy + 3, c("#9aa3b8"), ol_of(c("#9aa3b8")), 1)           # 의자 팔 (식탁에 붙어 있어요)
+        s.ell(cx - 10, cy - 7, cx + 10, cy + 11, shade(orange, 0.78), ol_of(orange))       # 의자 옆면
+        s.ell(cx - 10, cy - 9, cx + 10, cy + 7, orange, ol_of(orange))                     # 의자 윗면
+        s.ell(cx - 6, cy - 7, cx + 1, cy - 2, lighten(orange, 0.5))
+    s.rr(34, 7, W - 35, 19, t, to, 4, hi=c("#ffffff"))                                     # 식탁 윗면
+    s.rr(34, 17, W - 35, 25, shade(t, 0.82), to, 2)                                        # 식탁 앞쪽 두께
+    s.r(36, 18, W - 37, 18, lighten(t, 0.3))
+    if tray:                                                                               # 식판 두 개
+        for x0 in (38, W - 55):
+            s.rr(x0, 9, x0 + 16, 17, c("#fdfbf4"), c("#a79bb8"), 2)
+            s.rr(x0 + 2, 10, x0 + 7, 14, c("#ffffff"), c("#c0b8d0"), 1)
+            s.rr(x0 + 9, 10, x0 + 14, 13, c("#ee5a4a"), None, 1)
+    s.shadow(8, W - 9, 28)
+    return ret(s, w, 1)
 
 
 def lintel(n):
@@ -1192,7 +1229,7 @@ def get_sprite(name):
               "purifier": purifier, "glasscab": glasscab, "speaker": speaker, "ballcart": ballcart,
               "bookcart": bookcart, "extinguisher": extinguisher, "cone": cone, "ball": ball,
               "hoop": hoop, "flagpole": flagpole, "flagstand": flagstand, "posterstand": posterstand,
-              "signstone": signstone, "stage_6x3": lambda: stage(6, 3), "nook": lambda: nook(5, 2),
+              "signstone": signstone, "nook": lambda: nook(5, 2), "hoop_top": lambda: hoop_end(True), "hoop_bot": lambda: hoop_end(False),
               "mat_red": lambda: mat("red"), "mat_blue": lambda: mat("blue"),
               "stand_4x3": stand, "podium_4x3": podium, "stairs_2x3": stairs}
     if name in simple:
@@ -1210,7 +1247,9 @@ def get_sprite(name):
             (r"benchc_(\d+)", lambda m: bench(int(m[1]), True)),
             (r"barcounter_(\d+)", lambda m: barcounter(int(m[1]))),
             (r"libcounter_(\d+)", lambda m: libcounter(int(m[1]))),
-            (r"ctable_(\d+)_(\w+)", lambda m: ctable(int(m[1]), m[2])),
+            (r"rtable_(\d+)_(\w+?)(_tray)?", lambda m: rtable(int(m[1]), m[2], bool(m[3]))),
+            (r"stage_(\d+)x(\d+)", lambda m: stage(int(m[1]), int(m[2]))),
+            (r"doorroom_(.+)_([0-9a-f]{6})", lambda m: door_room(m[1], m[2])),
             (r"lintel_(\d+)", lambda m: lintel(int(m[1])))]
     for pat, fn in pats:
         m = re.fullmatch(pat, name)
