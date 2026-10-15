@@ -53,11 +53,23 @@ function loadImages() {
       im.src = url;
     }));
   };
-  for (const n in LIST.objects) load("assets/objects/" + LIST.objects[n].file, (im) => (IMG.obj[n] = im));
-  for (const k in LIST.sprites) load(`assets/sprites/${k}.png`, (im) => (IMG.spr[k] = im));
-  for (const u of LIST.ui) load(`assets/ui/${u}.png`, (im) => (IMG.ui[u] = im));
-  load("assets/backgrounds/map.png", (im) => (IMG.bg = im));
-  if (LIST.title) load("assets/backgrounds/title.png", (im) => (IMG.title = im));
+  const FILES = LIST.files;   // 큰 그림 파일의 위치 (map_data.js 에 적혀 있어요)
+  if (LIST.atlas) {   // 묶음 방식(p5 웹 에디터용): 묶음 그림 한 장을 불러와서 조각조각 잘라 써요
+    load(LIST.atlas.file, (im) => {
+      for (const name in LIST.atlas.rects) {
+        const [x, y, w, h] = LIST.atlas.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
+        cut.getContext("2d").drawImage(im, x, y, w, h, 0, 0, w, h);
+        const [kind, key] = name.split(":");
+        (kind === "spr" ? IMG.spr : kind === "ui" ? IMG.ui : IMG.obj)[key || name] = cut;
+      }
+    });
+  } else {            // 낱개 방식: 그림마다 PNG 한 장 (assets 폴더)
+    for (const n in LIST.objects) load("assets/objects/" + LIST.objects[n].file, (im) => (IMG.obj[n] = im));
+    for (const k in LIST.sprites) load(`assets/sprites/${k}.png`, (im) => (IMG.spr[k] = im));
+    for (const u of LIST.ui) load(`assets/ui/${u}.png`, (im) => (IMG.ui[u] = im));
+  }
+  load(FILES.map, (im) => (IMG.bg = im));
+  if (LIST.title) load(FILES.title, (im) => (IMG.title = im));
   return Promise.all(jobs);
 }
 
@@ -417,6 +429,8 @@ const debugMotion = (label, prob = 0.95) => { tm.motion.status = "준비됨(테�
 // 필요한 라이브러리를 그때그때 불러와요 (링크가 없으면 불러오지 않아서 게임이 가벼워요)
 const scriptCache = {};
 const loadScript = (src) => (scriptCache[src] ||= new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => fail(new Error("불러오기 실패: " + src)); document.head.appendChild(s); }));
+// 티처블 머신 라이브러리 위치. 이 컴퓨터의 lib 폴더를 쓰고, p5 웹 에디터 버전에서는 인터넷 주소(window.MAEHOL_LIBS)를 써요.
+const LIB = window.MAEHOL_LIBS || { tf: "lib/tf.min.js", posenet: "lib/posenet.min.js", pose: "lib/teachablemachine-pose.min.js", image: "lib/teachablemachine-image.min.js" };
 const modelUrls = (base) => { base = base.replace(/[^/]*\.json$/i, ""); base += base.endsWith("/") ? "" : "/"; return [base + "model.json", base + "metadata.json"]; };
 
 async function startTeachable() {
@@ -435,10 +449,10 @@ async function startTeachable() {
     tm.error = null;
   } catch (e) { tm.error = e.message; tm.running = false; return; }
   // 2) 링크가 있는 모델만 불러오기
-  await loadScript("lib/tf.min.js");
+  await loadScript(LIB.tf);
   const poseMode = CONFIG.TM_MOTION_TYPE !== "image" && tmMotionUrl();
-  if (poseMode) { await loadScript("lib/posenet.min.js"); await loadScript("lib/teachablemachine-pose.min.js"); }
-  if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadScript("lib/teachablemachine-image.min.js");
+  if (poseMode) { if (LIB.posenet) await loadScript(LIB.posenet); await loadScript(LIB.pose); }
+  if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadScript(LIB.image);
   const load = async (key, url, lib) => { tm[key].status = "불러오는 중..."; try { tm[key].model = await lib.load(...modelUrls(url)); tm[key].status = "준비됨"; } catch (e) { tm[key].status = "오류: 모델을 불러오지 못했어요"; console.warn(e); } };
   await Promise.all([tmFaceUrl() && load("face", tmFaceUrl(), window.tmImage), tmMotionUrl() && load("motion", tmMotionUrl(), poseMode ? window.tmPose : window.tmImage)]);
   tick();

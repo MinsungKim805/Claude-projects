@@ -165,7 +165,8 @@ def main():
     has_title = make_backgrounds(res)
     out = os.path.join(ROOT, "map_data.js")
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    assets = dict(sprites=sprites, objects=objs, title=has_title,
+    assets = dict(files=dict(map="assets/backgrounds/map.png", title="assets/backgrounds/title.png"),
+                  sprites=sprites, objects=objs, title=has_title,
                   ui=["bubble_exclaim", "bubble_talk", "check", "lock", "star", "ring", "arrow_down"])
     with open(out, "w", encoding="utf-8") as f:
         f.write("// 자동으로 만들어진 파일이에요. 직접 고치지 말고 tools/make_assets.py 를 다시 실행하세요.\n")
@@ -177,6 +178,8 @@ def main():
         json.dump(assets, f, ensure_ascii=False, separators=(",", ":"))
         f.write(";\n")
     print("스프라이트:", len(sprites), "오브젝트:", len(objs), "제목 화면:", has_title)
+    import make_p5editor           # p5.js 웹 에디터용 꾸러미도 같이 만들어요
+    make_p5editor.main()
 
 
 if __name__ == "__main__":
