@@ -1176,30 +1176,45 @@ def podium(w=4, d=3):
     return ret(s, w, d)
 
 
-def rtable(w, top, tray=False):
-    """급식실 가로 식탁 한 칸: 가운데 식탁 + 양쪽 끝에 붙은 주황색 둥근 일체형 의자. (가로 w칸, 세로 1칸)"""
-    W, H = w * T, T
+def rtable(w, rows, top, tray=False):
+    """급식실 가로 식탁 한 줄(세로 2칸): 가로로 긴 식탁의 위·아래 긴 쪽에 한 칸마다 주황색 둥근 일체형 의자가 붙어 있어요. (가로 w칸)
+    rows 를 늘리면 식탁 사이에 의자 줄을 함께 쓰는 식탁 묶음이 돼요."""
+    S_BAND, T_BAND = 20, 24                                                  # 의자 줄 높이, 식탁 줄 높이(픽셀)
+    px = (rows + 1) * S_BAND + rows * T_BAND
+    d = -(-px // T)                                                           # 세로 칸 수 (올림)
+    W, H = w * T, d * T
     s = S(W, H + PAD)
     tcol = {"cream": "#f8f0dc", "mint": "#d8f6e6", "peach": "#ffe4d0"}[top]
     t, to = c(tcol), c("#8a7a5a")
     orange = c("#ff9a3c")
-    cy = 16
-    for (cx, side) in ((16, -1), (W - 17, 1)):
-        x0 = 24 if side < 0 else W - 36
-        s.rr(x0, cy - 1, x0 + 11, cy + 3, c("#9aa3b8"), ol_of(c("#9aa3b8")), 1)           # 의자 팔 (식탁에 붙어 있어요)
-        s.ell(cx - 10, cy - 7, cx + 10, cy + 11, shade(orange, 0.78), ol_of(orange))       # 의자 옆면
-        s.ell(cx - 10, cy - 9, cx + 10, cy + 7, orange, ol_of(orange))                     # 의자 윗면
-        s.ell(cx - 6, cy - 7, cx + 1, cy - 2, lighten(orange, 0.5))
-    s.rr(34, 7, W - 35, 19, t, to, 4, hi=c("#ffffff"))                                     # 식탁 윗면
-    s.rr(34, 17, W - 35, 25, shade(t, 0.82), to, 2)                                        # 식탁 앞쪽 두께
-    s.r(36, 18, W - 37, 18, lighten(t, 0.3))
-    if tray:                                                                               # 식판 두 개
-        for x0 in (38, W - 55):
-            s.rr(x0, 9, x0 + 16, 17, c("#fdfbf4"), c("#a79bb8"), 2)
-            s.rr(x0 + 2, 10, x0 + 7, 14, c("#ffffff"), c("#c0b8d0"), 1)
-            s.rr(x0 + 9, 10, x0 + 14, 13, c("#ee5a4a"), None, 1)
-    s.shadow(8, W - 9, 28)
-    return ret(s, w, 1)
+    arm = c("#9aa3b8")
+
+    def stool_row(y0):                                                        # 의자 한 줄 (식탁에 팔로 붙어 있어요)
+        for i in range(w):
+            cx = 16 + i * T
+            s.rr(cx - 2, y0 - 3, cx + 1, y0 + 20, arm, None, 0)
+            s.ell(cx - 9, y0 + 6, cx + 9, y0 + 17, shade(orange, 0.78), ol_of(orange))      # 옆면
+            s.ell(cx - 9, y0 + 3, cx + 9, y0 + 14, orange, ol_of(orange))                   # 윗면
+            s.ell(cx - 5, y0 + 5, cx, y0 + 9, lighten(orange, 0.5))
+
+    def table(y0, k):
+        s.rr(4, y0, W - 5, y0 + 15, t, to, 4, hi=c("#ffffff"))                # 식탁 윗면
+        s.rr(4, y0 + 13, W - 5, y0 + 23, shade(t, 0.82), to, 2)               # 식탁 앞쪽 두께
+        s.r(6, y0 + 14, W - 7, y0 + 14, lighten(t, 0.3))
+        if tray:                                                               # 식판
+            for j in range(1 + k % 2, w - 1, 2):
+                x0 = 8 + j * T
+                s.rr(x0, y0 + 3, x0 + 16, y0 + 12, c("#fdfbf4"), c("#a79bb8"), 2)
+                s.rr(x0 + 2, y0 + 4, x0 + 7, y0 + 8, c("#ffffff"), c("#c0b8d0"), 1)
+                s.rr(x0 + 9, y0 + 4, x0 + 14, y0 + 7, c("#ee5a4a"), None, 1)
+
+    y = H - px                                                            # 맨 아래에 맞춰 그려요 (그림자가 바로 아래에 깔려요)
+    for r in range(rows):
+        stool_row(y); y += S_BAND
+        table(y, r); y += T_BAND
+    stool_row(y)
+    s.shadow(4, W - 5, 56)
+    return ret(s, w, d)
 
 
 def lintel(n):
@@ -1247,7 +1262,7 @@ def get_sprite(name):
             (r"benchc_(\d+)", lambda m: bench(int(m[1]), True)),
             (r"barcounter_(\d+)", lambda m: barcounter(int(m[1]))),
             (r"libcounter_(\d+)", lambda m: libcounter(int(m[1]))),
-            (r"rtable_(\d+)_(\w+?)(_tray)?", lambda m: rtable(int(m[1]), m[2], bool(m[3]))),
+            (r"rtable_(\d+)x(\d+)_(\w+?)(_tray)?", lambda m: rtable(int(m[1]), int(m[2]), m[3], bool(m[4]))),
             (r"stage_(\d+)x(\d+)", lambda m: stage(int(m[1]), int(m[2]))),
             (r"doorroom_(.+)_([0-9a-f]{6})", lambda m: door_room(m[1], m[2])),
             (r"lintel_(\d+)", lambda m: lintel(int(m[1])))]

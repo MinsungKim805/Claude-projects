@@ -453,7 +453,7 @@ def paint_markings(bg, d, b):
     t2 = text_image("퀴즈 존", c("#b8451a"), FONT11B, 11)
     bg.alpha_composite(t2, ((qx0 + qx1) // 2 - t2.width // 2, qy1 - 28))
     # ---- 급식실: 배식 대기선 (배식대 앞)
-    for xx in range(4 * T, 18 * T, 16):
+    for xx in range(4 * T, 16 * T, 16):
         d.rectangle([xx, 5 * T + 6, xx + 9, 5 * T + 8], fill=c("#ffc83a"))
     # ---- 세로 복도: 위쪽(다음 장소)을 가리키는 노란 화살표
     for (cxp, y_a, y_b, up) in ((16 * T, 20, 31, True), (62 * T, 21, 32, False), (51 * T, 51, 62, False)):
@@ -502,7 +502,7 @@ def furnish(b):
         b.obj("ball", bx, by)
 
     # ============================================================ 급식실 (x 2..33, y 3..17)
-    #   위쪽 왼쪽: 배식대(가로의 3/7쯤) / 오른쪽: 가로 식탁 8줄 x 3열 (양끝에 붙은 주황색 원형 일체형 의자)
+    #   위쪽 왼쪽: 배식대(가로의 3/7쯤) / 오른쪽: 가로로 긴 식탁 4줄 x 3열 (식탁 위·아래 긴 쪽에 붙은 주황색 원형 일체형 의자)
     for x in (20, 24, 28):
         b.dec("window_3_field", x, 1)
     b.dec("poster_water", 2, 1, dx=2, dy=7)
@@ -512,9 +512,9 @@ def furnish(b):
     b.obj("dispenser", 2, 3)
     b.obj("glasscab", 3, 3)
     b.obj("fridge", 18, 3)
-    for row in range(8):                                    # 가로로 8줄, 한 줄에 식탁 3칸(3열). 열 사이는 지나다닐 수 있는 통로
-        for col, (x, top) in enumerate(((19, "cream"), (24, "mint"), (29, "peach"))):
-            b.obj(f"rtable_4_{top}" + ("_tray" if (row + col) % 2 == 0 else ""), x, 5 + row)
+    for col, (x, top) in enumerate(((17, "cream"), (22, "mint"), (27, "peach"))):   # 가로 식탁 4줄 x 3열. 줄 사이·열 사이 한 칸은 지나다닐 수 있는 통로
+        for row in range(4):
+            b.obj(f"rtable_4x1_{top}_tray", x, 5 + row * 3)
     b.obj("plant", 2, 17)
     b.obj("trash", 33, 17)
     b.obj("bin", 9, 17)
