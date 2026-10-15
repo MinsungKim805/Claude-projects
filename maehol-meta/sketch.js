@@ -43,13 +43,20 @@ let charKey = "donghun";                          // 내가 고른 캐릭터
 let done = {}, quizDone = false, best = null;     // 소개를 끝낸 구역, 퀴즈를 풀었는지, 최고 점수
 try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) {}
 
-// ---- 파일 불러오기: 필요한 파일이 빠졌을 때(예: p5 웹 에디터에서 로그인을 안 해서 큰 파일을 못 올렸을 때)를 대비해서,
-//      없는 파일은 인터넷(GitHub 에 올려 둔 같은 파일)에서 대신 가져와요. 파일을 고쳐 쓰고 싶으면 내 파일을 올려 두세요.
-//      ※ 파일 이름(content.js, data.js, art.png)은 이 파일 안에서 딱 한 번씩만 써야 해요 (p5 웹 에디터가 올린 파일의 주소로 바꿔 주기 때문이에요)
-const ONLINE = "https://raw.githubusercontent.com/MinsungKim805/Claude-projects/6f84d40c1231aeff34526c2bb23402db58224b38/maehol-meta/";
-const FILES = [["content.js", "MAEHOL_QUIZ", "설정·대사·퀴즈"], ["data.js", "MAEHOL_MAP", "맵 데이터·글꼴"]];   // [파일 이름, 파일이 만들어 주는 이름, 설명]
-const ART = "art.png";
-const loadState = {};   // 파일 이름 → "내 파일" / "인터넷" / "없음"
+// ---- 파일 불러오기: 파일이 안 불러와질 때(예: p5 웹 에디터에서 큰 파일이 올라가지 못했을 때)를 대비해서,
+//      같은 파일을 인터넷(GitHub 에 올려 둔 것)에서 대신 가져와요. 고친 내용을 쓰고 싶으면 내 파일이 제대로 올라가 있어야 해요.
+//      ※ 따옴표 친 파일 이름(content.js, data.js, art.png)은 이 파일 안에서 딱 한 번씩만 써야 해요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요.
+//        그래서 인터넷에서 가져올 때 쓰는 이름(name)은 글자를 이어 붙여서(join) 만들었어요.
+const SHA = "6f84d40c1231aeff34526c2bb23402db58224b38";   // 인터넷에 올려 둔 파일 버전(커밋 번호)
+const ONLINE = [`https://raw.githubusercontent.com/MinsungKim805/Claude-projects/${SHA}/maehol-meta/`, `https://cdn.jsdelivr.net/gh/MinsungKim805/Claude-projects@${SHA}/maehol-meta/`];
+const FILES = [   // src = 내 파일(에디터가 주소로 바꿔 줘요), name = 인터넷에서 가져올 때 쓰는 이름, key = 파일이 만들어 주는 이름
+  { src: "content.js", name: ["content", "js"].join("."), key: "MAEHOL_QUIZ", what: "설정·대사·퀴즈" },
+  { src: "data.js", name: ["data", "js"].join("."), key: "MAEHOL_MAP", what: "맵 데이터·글꼴" },
+];
+const ART = { src: "art.png", name: ["art", "png"].join("."), what: "그림 묶음" };
+const loadState = {}, tried = {};   // loadState: 파일 → "내 파일" / "인터넷" / "없음",  tried: 파일 → 실패한 이유 목록(실패 화면에 보여 줘요)
+const hostOf = (u) => { try { return new URL(u, document.baseURI).host; } catch (e) { return "?"; } };
+const note = (f, u, why) => (tried[f.name] = tried[f.name] || []).push(`${hostOf(u)} ${why}`);
 
 function addScript(src, text) {   // script 태그를 만들어서 실행해요 (text 가 있으면 그 글자를 바로 실행)
   return new Promise((ok) => {
@@ -58,26 +65,32 @@ function addScript(src, text) {   // script 태그를 만들어서 실행해요 
     el.onload = () => ok(true); el.onerror = () => ok(false); el.src = src; document.head.appendChild(el);
   });
 }
-async function getScript(src) {   // 파일을 글자로 읽어서 실행해요. 안 되면(주소가 http 로 시작할 때만) script 태그로 한 번 더 시도해요
-  try { const r = await fetch(src), t = await r.text(); if (r.ok && t.trimStart()[0] !== "<") return addScript(null, t); } catch (e) {}
-  return /^https?:/.test(src) && addScript(src);
+async function getScript(src, f) {   // 파일을 글자로 읽어서 실행해요. 안 되면(주소가 http 로 시작할 때만) script 태그로 한 번 더 시도해요
+  try {
+    const r = await fetch(src);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const t = await r.text();
+    if (t.trimStart()[0] === "<") throw new Error("파일 대신 웹페이지가 왔어요");
+    return addScript(null, t);
+  } catch (e) { note(f, src, String(e.message || e).slice(0, 40)); }
+  if (/^https?:/.test(src) && !(await addScript(src))) note(f, src, "script 태그로도 실패");
 }
-async function loadFile([file, key]) {
-  if (window[key]) return "내 파일";               // index.html 이 이미 불러왔어요
-  await getScript(file);
-  if (window[key]) return "내 파일";
-  await getScript(ONLINE + file);
-  return window[key] ? "인터넷" : "없음";
+async function loadFile(f) {
+  if (window[f.key]) return "내 파일";               // index.html 이 이미 불러왔어요
+  await getScript(f.src, f);
+  if (window[f.key]) return "내 파일";
+  for (const base of ONLINE) { await getScript(base + f.name, f); if (window[f.key]) return "인터넷"; }
+  return "없음";
 }
 
 // ---- 그림 불러오기: 모든 그림은 png 한 장에 묶여 있어요. 불러온 뒤 조각조각 잘라서 써요.
 //      IMG.obj["desk"] = 책상 그림, IMG.spr["donghun"] = 동훈 시트, IMG.ui["star"] = 별, IMG.bg = 맵 배경, IMG.title = 시작 화면
 const IMG = { obj: {}, spr: {}, ui: {}, bg: null, title: null };
-const loadSheet = (src) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = src; });
+const loadSheet = (src) => new Promise((ok) => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => { note(ART, src, "그림 불러오기 실패"); ok(null); }; im.src = src; });
 async function loadImages() {
-  let sheet = await loadSheet(ART);
-  loadState[ART] = sheet ? "내 파일" : "없음";
-  if (!sheet && (sheet = await loadSheet(ONLINE + ART))) loadState[ART] = "인터넷";
+  let sheet = await loadSheet(ART.src), from = "내 파일";
+  for (const base of ONLINE) if (!sheet) { sheet = await loadSheet(base + ART.name); from = "인터넷"; }
+  loadState[ART.name] = sheet ? from : "없음";
   if (!sheet || !LIST) return;
   for (const name in LIST.rects) {
     const [x, y, w, h] = LIST.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
@@ -538,8 +551,9 @@ let boot = { step: 0, state: "loading" };   // step: 끝낸 단계 수(0~3), sta
 scenes.boot = {
   enter() {
     boot = { step: 0, state: "loading" };
+    Object.keys(tried).forEach((k) => delete tried[k]);
     (async () => {
-      for (const f of FILES) { loadState[f[0]] = await loadFile(f); boot.step++; }
+      for (const f of FILES) { loadState[f.name] = await loadFile(f); boot.step++; }
       [MAP, LIST, SCRIPT, QUIZ] = [window.MAEHOL_MAP, window.MAEHOL_ASSETS, window.MAEHOL_SCRIPT, window.MAEHOL_QUIZ];
       await Promise.all(["22px Galmuri11", "bold 22px Galmuri11", "11px Galmuri11"].map((f) => document.fonts.load(f, "매홀중학교 ABC")).concat(loadImages())).catch(() => {});   // 글꼴, 그림
       boot.step++;
@@ -555,18 +569,19 @@ scenes.boot = {
     push(); noStroke(); fill("rgba(255,255,255,0.15)"); rect(W / 2 - 220, H / 2 + 10, 440, 18, 9); fill("#4fd17a"); rect(W / 2 - 220, H / 2 + 10, 440 * p, 18, 9); pop();   // 진행 막대
     txt(`불러오는 중... ${Math.round(p * 100)}%` + (online ? "  (인터넷에서 가져오고 있어요)" : ""), W / 2, H / 2 + 50, 22, { align: CENTER, color: "#d8d4ff" });
   },
-  drawFail() {   // 파일이 없어서 시작할 수 없을 때: 뭐가 없는지, 어떻게 하면 되는지 알려줘요
-    const [x, y, w, h] = [190, 170, 900, 520];
+  drawFail() {   // 파일이 없어서 시작할 수 없을 때: 뭐가 안 불러와졌는지, 왜 그런지, 어떻게 하면 되는지 알려줘요
+    const [x, y, w, h] = [150, 60, 980, 600];
     panel(x, y, w, h, { fill: "rgba(30,24,60,0.95)", border: "#ff9a9a" });
     txt("게임 파일을 불러오지 못했어요", W / 2, y + 34, 28, { align: CENTER, bold: true, color: "#ff9a9a" });
-    [...FILES.map((f) => [f[0], f[2]]), [ART, "그림 묶음"]].forEach(([name, what], i) => {
-      const st = loadState[name] || "없음";
-      txt(`${name.split("/").pop()}  (${what})`, x + 60, y + 90 + i * 34, 22, { color: "#ffffff" });
-      txt(st === "없음" ? "✗ 없음" : `✓ ${st}`, x + w - 60, y + 90 + i * 34, 22, { align: RIGHT, color: st === "없음" ? "#ff9a9a" : "#4fd17a" });
+    [...FILES, ART].forEach((f, i) => {
+      const st = loadState[f.name] || "없음", yy = y + 84 + i * 80;
+      txt(`${f.name}  (${f.what})`, x + 50, yy, 22, { color: "#ffffff" });
+      txt(st === "없음" ? "✗ 없음" : `✓ ${st}`, x + w - 50, yy, 22, { align: RIGHT, color: st === "없음" ? "#ff9a9a" : "#4fd17a" });
+      if (st === "없음") wrapText((tried[f.name] || []).join("  ·  "), w - 100, 13).slice(0, 3).forEach((l, j) => txt(l, x + 50, yy + 26 + j * 17, 13, { color: "#b9b5e6" }));   // 실패한 이유
     });
-    ["이렇게 해 보세요", "1. 인터넷이 연결되어 있는지 확인해요 (없는 파일은 GitHub 에서 가져와요)", "2. p5 웹 에디터의 Sketch Files 에 index.html, sketch.js, content.js, data.js 가 모두 있는지 봐요",
-      "3. 파일 이름이 data-1.js, index-1.html 처럼 바뀌어 있으면 지우고 다시 올려요", "4. 에디터의 기본 index.html, sketch.js 를 먼저 지우고 올려요"].forEach((s, i) => txt(s, x + 60, y + 250 + i * 36, i ? 19 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
-    if (button("다시 시도", W / 2 - 110, y + h - 80, 220, 56, { size: 24 })) this.enter();
+    ["이렇게 해 보세요", "1. 인터넷이 연결되어 있는지 확인해요", "2. 학교·회사 인터넷에서는 github, amazonaws 같은 주소가 막혀 있을 수 있어요. 집 인터넷이나 휴대폰 핫스팟으로 해 보세요",
+      "3. p5 웹 에디터의 Sketch Files 에 index.html, sketch.js, content.js, data.js, art.png 가 모두 있는지 봐요", "4. 위 빨간 글자(실패한 이유)를 알려 주시면 원인을 찾을 수 있어요"].forEach((s, i) => txt(s, x + 50, y + 340 + i * 34, i ? 17 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
+    if (button("다시 시도", W / 2 - 110, y + h - 76, 220, 56, { size: 24 })) this.enter();
   },
 };
 
