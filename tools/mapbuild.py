@@ -453,7 +453,7 @@ def paint_markings(bg, d, b):
     t2 = text_image("퀴즈 존", c("#b8451a"), FONT11B, 11)
     bg.alpha_composite(t2, ((qx0 + qx1) // 2 - t2.width // 2, qy1 - 28))
     # ---- 급식실: 배식 대기선 (배식대 앞)
-    for xx in range(4 * T, 16 * T, 16):
+    for xx in range(4 * T, 12 * T, 16):
         d.rectangle([xx, 5 * T + 6, xx + 9, 5 * T + 8], fill=c("#ffc83a"))
     # ---- 세로 복도: 위쪽(다음 장소)을 가리키는 노란 화살표
     for (cxp, y_a, y_b, up) in ((16 * T, 20, 31, True), (62 * T, 21, 32, False), (51 * T, 51, 62, False)):
@@ -512,9 +512,9 @@ def furnish(b):
     b.obj("dispenser", 2, 3)
     b.obj("glasscab", 3, 3)
     b.obj("fridge", 18, 3)
-    for col, (x, top) in enumerate(((17, "cream"), (22, "mint"), (27, "peach"))):   # 가로 식탁 4줄 x 3열. 줄 사이·열 사이 한 칸은 지나다닐 수 있는 통로
+    for col, (x, top) in enumerate(((13, "cream"), (20, "mint"), (27, "peach"))):   # 가로 식탁 4줄 x 3열(식탁 하나가 6자리). 줄 사이·열 사이 한 칸은 지나다닐 수 있는 통로
         for row in range(4):
-            b.obj(f"rtable_4x1_{top}_tray", x, 5 + row * 3)
+            b.obj(f"rtable_6x1_{top}_tray", x, 5 + row * 3)
     b.obj("plant", 2, 17)
     b.obj("trash", 33, 17)
     b.obj("bin", 9, 17)
