@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>메타 투어 매홀 - 나와 만나는 학교</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+    <style>
+      html, body { margin: 0; height: 100%; background: #120d1a; overflow: hidden; }
+      #game { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+      /* 화면 크기에 맞춰 키우되, 도트가 번지지 않게 해요 */
+      canvas { image-rendering: pixelated; width: min(100vw, 177.78vh) !important; height: auto !important; display: block; outline: none; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <!-- 게임을 이루는 파일들 (위에서 아래로 차례대로 불러와요) -->
+    <script src="content.js"></script>   <!-- ★ 직접 고침: 설정 + 소개 대사 + 퀴즈 -->
+    <script src="data.js"></script>      <!-- 맵 데이터 + 글꼴 (자동으로 만들어져요) -->
+    <script src="sketch.js"></script>    <!-- 게임 코드 (그림 묶음 png 는 이 안에서 불러와요) -->
+  </body>
+</html>
