@@ -1,8 +1,9 @@
 """그림을 한 장(art.png)으로 묶고, 게임이 읽는 데이터 파일(data.js)을 만들어요.   (make_assets.py 가 불러서 써요)
 
-게임 파일은 폴더 없이 한곳에 있어요:
+게임 파일은 maehol-meta/ 폴더 안에 폴더 없이 한곳에 있어요:
   index.html  sketch.js  content.js   ← 직접 쓰는 파일 (이 도구가 건드리지 않아요)
   data.js     art.png                  ← 이 도구가 만들어요
+그리고 이 5개 파일을 묶은 maehol-meta.zip 도 레포 맨 위에 만들어요.
 
 p5 웹 에디터의 업로드 규칙(한 번에 6개, 파일당 5MB, 글꼴은 ttf/otf만)에 맞추려고
   - 가구·캐릭터·아이콘·맵 배경·시작 화면 그림을 art.png 한 장에 모두 담고
@@ -11,11 +12,14 @@ p5 웹 에디터의 업로드 규칙(한 번에 6개, 파일당 5MB, 글꼴은 t
 import base64
 import json
 import os
+import zipfile
 
 from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+GAME = os.path.join(ROOT, "maehol-meta")      # 게임 파일 5개가 들어 있는 폴더
+GAME_FILES = ("index.html", "sketch.js", "content.js", "data.js", "art.png")
 FONTS = [("Galmuri11", 400, "Galmuri11.woff2"), ("Galmuri11", 700, "Galmuri11-Bold.woff2"), ("Galmuri9", 400, "Galmuri9.woff2")]
 
 
@@ -78,19 +82,46 @@ def build_data(MAP, objects, rects):
     return "\n".join(out) + "\n"
 
 
+GUIDE = """메타 투어 매홀 - p5.js 웹 에디터에 올리기
+=========================================
+maehol-meta 폴더 안의 파일 5개(index.html, sketch.js, content.js, data.js, art.png)를 한 번에 올리면 돼요.
+
+1. https://editor.p5js.org 에서 로그인 -> 파일(File) > 새로 만들기(New)
+2. 왼쪽 Sketch Files 의 기본 파일 index.html, sketch.js 를 먼저 삭제해요. (이름 옆 화살표 > Delete)
+   (같은 이름은 덮어쓰기가 안 되고 sketch-1.js 처럼 이름만 바뀌어 올라가기 때문이에요. style.css 는 그냥 둬도 돼요.)
+3. Sketch Files 옆 화살표 > Upload file 에서 5개 파일을 모두 선택해서 올려요.
+4. 위쪽 재생(Play) 버튼을 눌러요.
+
+- 대사/퀴즈는 에디터에서 content.js 를 열어 고치고 재생을 다시 눌러요.
+- 키보드가 안 먹으면 게임 화면을 한 번 클릭하세요. (화면을 누른 채로도 걸을 수 있어요)
+- 내 컴퓨터에서 하려면 5개 파일을 한 폴더에 두고 index.html 을 더블클릭해요. (인터넷 필요)
+"""
+
+
+def write_zip():
+    """게임 파일 5개를 maehol-meta.zip 으로 묶어요 (폴더 안에는 파일 5개뿐이에요)."""
+    zpath = os.path.join(ROOT, "maehol-meta.zip")
+    with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("읽어보세요.txt", GUIDE)
+        for f in GAME_FILES:
+            z.write(os.path.join(GAME, f), f"maehol-meta/{f}")
+    return zpath
+
+
 def write_game(assets_dir, MAP, objects, sprites, ui, has_title):
     """art.png 와 data.js 를 게임 폴더(루트)에 만들어요."""
     art, rects = build_art(assets_dir, objects, sprites, ui, has_title)
-    art.save(os.path.join(ROOT, "art.png"), optimize=True)
-    with open(os.path.join(ROOT, "data.js"), "w", encoding="utf-8") as f:
+    art.save(os.path.join(GAME, "art.png"), optimize=True)
+    with open(os.path.join(GAME, "data.js"), "w", encoding="utf-8") as f:
         f.write(build_data(MAP, objects, rects))
     # 웹 에디터는 파일 이름을 '처음 나온 곳' 한 군데만 올린 파일 주소로 바꿔요 → sketch.js 안에 art.png 가 딱 한 번만 있어야 해요
-    with open(os.path.join(ROOT, "sketch.js"), encoding="utf-8") as f:
+    with open(os.path.join(GAME, "sketch.js"), encoding="utf-8") as f:
         n = f.read().count("art.png")
     if n != 1:
         print(f"!! sketch.js 안에 art.png 라는 글자가 {n}번 있어요. 주석에도 쓰지 말고 딱 한 번만 쓰세요.")
     for name in ("sketch.js", "content.js", "index.html"):     # 80KB 가 넘는 js 는 웹 에디터에서 고칠 수 없는 파일로 올라가요
-        size = os.path.getsize(os.path.join(ROOT, name))
+        size = os.path.getsize(os.path.join(GAME, name))
         if size > 78000:
             print(f"!! {name} 가 {size}바이트예요. 웹 에디터에서 고칠 수 없는 파일로 올라갈 수 있어요. (기준 78000)")
-    print(f"art.png {art.width}x{art.height} ({len(rects)}장 묶음), data.js {os.path.getsize(os.path.join(ROOT, 'data.js')) // 1024}KB")
+    write_zip()
+    print(f"art.png {art.width}x{art.height} ({len(rects)}장 묶음), data.js {os.path.getsize(os.path.join(GAME, 'data.js')) // 1024}KB, maehol-meta.zip 만들었어요")
