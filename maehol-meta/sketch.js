@@ -34,9 +34,7 @@ try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) 
 
 // ---- 파일 불러오기: 파일(content.js, data.js, art.png)을 여러 곳에서 동시에 가져와서, 먼저 성공한 걸 써요.
 //      1) 내 파일(p5 웹 에디터에 올린 것)  2) 3초 안에 안 되면 GitHub  3) 또 3초 뒤 jsDelivr(GitHub 파일을 대신 내주는 곳). 앞의 것이 실패하면 바로 다음 것을 시작해요.
-//      그래서 에디터가 올린 파일을 못 불러오거나 오래 걸려도 게임은 시작돼요. (고친 내용은 내 파일이 불러와져야 반영돼요)
-//      ※ 따옴표 친 파일 이름(content.js, data.js, art.png)은 이 파일 안에서 딱 한 번씩만 써야 해요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요.
-//        그래서 인터넷에서 가져올 때 쓰는 이름(name)은 글자를 이어 붙여서(join) 만들었어요.
+//      ※ 따옴표 친 파일 이름(content.js, data.js, art.png)은 딱 한 번씩만 써요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요. (인터넷용 이름 name 은 글자를 이어 붙여 만들었어요)
 const SHA = "c7ad7dad4a62bbed58fb342aa23a8b1f4c31ac51";  // 인터넷에 올려 둔 파일 버전(커밋 번호)
 const ONLINE = [`https://raw.githubusercontent.com/MinsungKim805/Claude-projects/${SHA}/maehol-meta/`, `https://cdn.jsdelivr.net/gh/MinsungKim805/Claude-projects@${SHA}/maehol-meta/`];
 const FILES = [  // src = 내 파일(에디터가 주소로 바꿔 줘요), name = 인터넷에서 가져올 때 쓰는 이름, key = 파일이 만들어 주는 이름
@@ -765,7 +763,12 @@ let cooldown = {}, gateCool = 0, mini = null;  // NPC별 쉬는 시간, 문 알�
 const PHOTO_OF = { c1: "corr1", cafeteria: "cafeteria", gym: "gym", library: "library", classroom: "classroom" };  // 장소 → 사진 이름 (복도는 처음 만나는 본관 복도 c1 만)
 const PHOTO_T = 3.4;  // 사진이 떠 있는 시간(초)
 let seen = {}, photo = null;  // 이미 가 본 장소, 지금 보여주는 사진 {t, id, name}
-const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0, qs: QUIZ.map((q) => [Math.random(), q]).sort((a, b) => a[0] - b[0]).map((x) => x[1]) });   // 문제 순서를 매번 섞어요
+const shuffled = (q) => {   // 보기 순서를 섞고, 정답 번호(answer)도 그에 맞게 바꿔요. fixed: true 인 문제는 순서를 그대로 둬요
+  if (q.fixed) return q;
+  const idx = q.choices.map((_, i) => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+  return { ...q, choices: idx.map((i) => q.choices[i]), answer: idx.indexOf(q.answer) };
+};
+const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0, qs: QUIZ.map(shuffled) });   // 퀴즈를 시작할 때마다 정답 위치가 달라져요
 const allDone = () => AREAS.every((a) => done[a]);  // 4곳 소개를 모두 끝냈는지
 // NPC 머리 위에 어떤 말풍선을 보일지 (없으면 null)
 function npcIcon(n) {
