@@ -762,9 +762,10 @@ let mode = "explore", dlg = null, quiz = null;  // 지금 모드, 진행 중인 
 let zone = null, zoneT = 0, hintGate = null, nearNpc = null;  // 지금 장소, 장소 이름을 보여준 시간, 방금 열린 문, 가까이 있는 NPC
 let cooldown = {}, gateCool = 0, mini = null;  // NPC별 쉬는 시간, 문 알림 간격, 미니맵 그림
 // 새 장소에 처음 들어가면 그 장소 사진을 반짝이는 효과와 함께 잠깐 보여줘요. (사진은 art.png 안에 있어요)
-const PHOTO_OF = { c1: "corr1", c2: "corr2", c3: "corr1", c4: "corr2", cafeteria: "cafeteria", gym: "gym", library: "library", classroom: "classroom" };  // 장소 → 사진 이름
+const PHOTO_OF = { c1: "corr1", cafeteria: "cafeteria", gym: "gym", library: "library", classroom: "classroom" };  // 장소 → 사진 이름 (복도는 처음 만나는 본관 복도 c1 만)
 const PHOTO_T = 3.4;  // 사진이 떠 있는 시간(초)
 let seen = {}, photo = null;  // 이미 가 본 장소, 지금 보여주는 사진 {t, id, name}
+const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0, qs: QUIZ.map((q) => [Math.random(), q]).sort((a, b) => a[0] - b[0]).map((x) => x[1]) });   // 문제 순서를 매번 섞어요
 const allDone = () => AREAS.every((a) => done[a]);  // 4곳 소개를 모두 끝냈는지
 // NPC 머리 위에 어떤 말풍선을 보일지 (없으면 null)
 function npcIcon(n) {
@@ -830,7 +831,7 @@ scenes.game = {
     if (n.role === "guide") this.say(n, S.areas[n.area].lines, () => this.finishArea(n.area));  // 대사를 다 들으면 이 구역이 "완료"
     else if (n.role === "quiz") {  // 반장: 소개를 다 듣기 전엔 돌려보내요
       if (!allDone()) this.say(n, S.quiz.locked);
-      else this.say(n, quizDone ? S.quiz.again : S.quiz.intro, () => { mode = "quiz"; quiz = { i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0 }; });
+      else this.say(n, quizDone ? S.quiz.again : S.quiz.intro, () => { mode = "quiz"; quiz = newQuiz(); });
     } else this.say(n, S.chat[n.id] || ["안녕!"]);  // 복도 NPC: 학교 이야기를 들려줘요 (필수는 아니에요)
   },
   say(npc, lines, onDone) {  // 대화창 열기. lines = 대사 목록, onDone = 끝난 뒤 할 일
@@ -899,7 +900,7 @@ scenes.game = {
 
   // 모드 3: 퀴즈 푸는 중.  state: "ask"(문제) → "feedback"(정답 확인) → ... → "result"(결과)
   pick(i) {
-    const q = QUIZ[quiz.i];
+    const q = quiz.qs[quiz.i];
     if (quiz.state !== "ask" || i < 0 || i >= q.choices.length) return;
     quiz.picked = quiz.sel = i;
     const ok = i === q.answer;  // 정답인지 비교!
@@ -919,7 +920,7 @@ scenes.game = {
     updateWorld(dt, { x: 0, y: 0 });
     if (quiz.state === "ask") {
       if (numberKey() >= 0) this.pick(numberKey());  // 1~4 키
-      if (navKey()) { quiz.sel = (quiz.sel + navKey() + QUIZ[quiz.i].choices.length) % QUIZ[quiz.i].choices.length; sfx("click"); }  // ↑ ↓ 키
+      if (navKey()) { const n = quiz.qs[quiz.i].choices.length; quiz.sel = (quiz.sel + navKey() + n) % n; sfx("click"); }  // ↑ ↓ 키
       if (action()) this.pick(quiz.sel);  // Space 로 확정
     } else if (quiz.state === "feedback" && quiz.t > 0.3 && (action() || click)) { click = null; this.next(); }
   },
@@ -995,7 +996,7 @@ scenes.game = {
   // 퀴즈 창 (정답은 초록, 내가 고른 오답은 빨강)
   quizDraw() {
     dim(0.55);
-    const [x, y, w, h] = [110, 36, 1060, 648], Q = quiz, q = QUIZ[Q.i];
+    const [x, y, w, h] = [110, 36, 1060, 648], Q = quiz, q = Q.qs[Q.i];
     panel(x, y, w, h, { fill: "rgba(24,26,58,0.98)", border: "#ffe27a", r: 18 });
     if (Q.state === "result") return this.resultDraw(x, y, w, h);
     txt(`퀴즈 ${Q.i + 1} / ${QUIZ.length}`, x + 40, y + 28, 22, { bold: true, color: "#ffe27a" });
@@ -1032,7 +1033,7 @@ scenes.game = {
     txt(ratio >= 1 ? "만점이에요! 우리 학교 박사님이네요!" : ratio >= 0.6 ? "잘했어요! 우리 학교를 잘 알고 있어요." : "소개를 다시 한 번 들어 보고 도전해 봐요!", x + w / 2, y + 340, 30, { align: CENTER, bold: true });  // 응원 문구 (바꿔도 돼요)
     if (best != null) txt(`내 최고 점수  ${best} / ${QUIZ.length}`, x + w / 2, y + 400, 22, { align: CENTER, color: "#ffe27a" });
     const by = y + h - 130;
-    if (button("다시 풀기", x + 90, by, 270, 70, { size: 26 })) { quiz = { i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0 }; sfx("select"); }
+    if (button("다시 풀기", x + 90, by, 270, 70, { size: 26 })) { quiz = newQuiz(); sfx("select"); }
     if (button("계속 둘러보기", x + 395, by, 270, 70, { size: 26, ...BLUE })) this.closeQuiz();
     if (button("처음으로", x + 700, by, 270, 70, { size: 26, ...PINK })) goTo("title");
   },

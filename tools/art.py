@@ -511,6 +511,40 @@ def bench(n, cushion=False):
     return ret(s, n, 1)
 
 
+def benchv(n):
+    """세로로 놓인 벤치(세로 복도용): 긴 쪽이 위아래로 놓여 있어요. (가로 1칸, 세로 n칸)"""
+    H = n * T
+    s = S(T, H + PAD)
+    wood, o = c("#d9955a"), c("#6e4326")
+    for x in (9, 20):                                                       # 앞쪽 다리
+        s.r(x, H - 8, x + 2, H - 1, STEEL)
+    s.rr(7, 3, 24, H - 10, wood, o, 3, hi=c("#f6c08a"))                     # 윗판
+    for y in range(11, H - 12, 9):
+        s.line((9, y), (22, y), shade(wood, 0.82))
+    s.rr(7, H - 14, 24, H - 7, shade(wood, 0.82), o, 2)                     # 앞쪽 두께
+    s.shadow(5, 26, 54)
+    return ret(s, 1, n)
+
+
+def trophyv(n):
+    """세로로 놓인 유리 진열장(세로 복도용): 위에서 트로피가 보여요. (가로 1칸, 세로 n칸)"""
+    H = n * T
+    s = S(T, H + PAD)
+    wood, o = c("#c98a52"), c("#6e4326")
+    s.rr(3, 2, 28, H - 6, wood, o, 3)
+    s.rr(6, 5, 25, H - 16, c("#eaf6ff"), c("#8a6a46"), 2)                    # 유리 덮개
+    s.r(8, 7, 9, H - 19, c("#ffffff"))
+    for k in range(n * 2):                                                  # 트로피
+        y = 9 + k * (H - 30) // max(1, n * 2 - 1)
+        col = c("#ffc83a") if k % 2 == 0 else c("#c8d0e0")
+        s.rr(11, y, 20, y + 7, col, ol_of(col), 2, hi=lighten(col, 0.5))
+        s.r(14, y + 8, 17, y + 10, shade(col, 0.8))
+    s.rr(5, H - 14, 26, H - 7, shade(wood, 0.9), o, 1)                      # 앞쪽 면
+    s.r(11, H - 12, 20, H - 10, c("#ffd96a"))
+    s.shadow(3, 28, 56)
+    return ret(s, 1, n)
+
+
 def extinguisher():
     s = S(T, 31 + PAD)
     s.rr(11, 6, 20, 29, c("#ee4a42"), ol_of(c("#ee4a42")), 3, hi=c("#ff8a7a"))
@@ -1298,6 +1332,8 @@ def get_sprite(name):
             (r"backpack_(\w+)", lambda m: backpack(m[1])),
             (r"steel_(\d+)", lambda m: steel_counter(int(m[1]))),
             (r"trophy_(\d+)", lambda m: trophy(int(m[1]))),
+            (r"benchv_(\d+)", lambda m: benchv(int(m[1]))),
+            (r"trophyv_(\d+)", lambda m: trophyv(int(m[1]))),
             (r"goal_(\d+)", lambda m: goal(int(m[1]))),
             (r"bench_(\d+)", lambda m: bench(int(m[1]))),
             (r"benchc_(\d+)", lambda m: bench(int(m[1]), True)),

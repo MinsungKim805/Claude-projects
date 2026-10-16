@@ -528,8 +528,12 @@ def furnish(b):
         b.obj("extinguisher", cx, y0 + 1)
         b.obj("plant", cx + 7, y0 + 1)
         b.obj("posterstand", cx, y0 + 6)
-        b.obj("bench_3", cx + 5, y0 + 9)
-        b.obj("purifier", cx + 7, y0 + 6) if kind != 2 else b.obj("trophy_2", cx + 6, y0 + 6)
+        if kind != 2:                                       # 세로 복도에서는 벤치·진열장도 세로로 (오른쪽 벽 쪽)
+            b.obj("purifier", cx + 7, y0 + 5)
+            b.obj("benchv_3", cx + 7, y0 + 8)
+        else:
+            b.obj("trophyv_3", cx + 7, y0 + 4)
+            b.obj("benchv_3", cx + 7, y0 + 9)
         b.obj("plant", cx, y0 + 12)
         b.obj("bin", cx + 7, y0 + 12)
     # 가로 복도 c2 (x 34..45, y 9..14) : 벽 쪽 장식
