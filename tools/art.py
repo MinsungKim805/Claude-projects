@@ -49,14 +49,20 @@ def chair(col, facing):
 
 
 def desk(variant=""):
-    top = c("#f9d39b")
-    o = c("#80553a")
+    oak = variant.startswith("oak")                        # 교실 ②의 나무 책상
+    variant = variant[3:] if oak else variant
+    top = c("#e6a867") if oak else c("#f9d39b")
+    o = c("#5a3a22") if oak else c("#80553a")
     s = S(T, T + PAD)
     for x in (5, 24):
         s.r(x, 21, x + 2, 29, STEEL)
     s.r(5, 28, 26, 29, shade(STEEL, 0.85))
     s.rr(2, 8, 29, 22, top, o, 3, hi=lighten(top, 0.55))
     s.r(4, 19, 27, 20, shade(top, 0.84))
+    if oak:                                                # 나뭇결 + 앞쪽 짙은 테두리
+        for yy in (12, 15):
+            s.line((5, yy), (26, yy), shade(top, 0.9))
+        s.r(3, 21, 28, 22, c("#3a2a24"))
     if variant == "book":
         s.rr(6, 11, 15, 17, c("#4f86e0"), ol_of(c("#4f86e0")), 1)
         s.rr(16, 11, 25, 17, c("#fffdf2"), c("#9a8a6a"), 1)
@@ -153,9 +159,9 @@ def books(s, x0, y0, x1, y1, seed, bg=None):
     return s
 
 
-def wshelf(n):
-    """도서관 흰색 철제 책장 (앞에서 본 모습)."""
-    W, H = n * T, 68
+def wshelf(n, tall=False):
+    """도서관 흰색 철제 책장 (앞에서 본 모습). tall=True 면 키가 큰 책장(여섯 칸)."""
+    W, H = n * T, 100 if tall else 68
     s = S(W, H + PAD)
     frame, o = c("#f2f4fa"), c("#7480a8")
     s.rr(0, 0, W - 1, H - 1, frame, o, 2)
@@ -164,11 +170,11 @@ def wshelf(n):
     # 위쪽 색 라벨
     for i in range(n * 2):
         s.r(5 + i * 16, 2, 14 + i * 16, 3, c(BOOKS[(i * 3 + n) % len(BOOKS)]))
-    rows = 4
+    rows = 6 if tall else 4
     rh = (H - 10) // rows
     for r in range(rows):
         y0 = 7 + r * rh
-        books(s, 3, y0, W - 4, y0 + rh - 2, seed=n * 10 + r, bg=c("#dfe5f3"))
+        books(s, 3, y0, W - 4, y0 + rh - 2, seed=n * 10 + r + (50 if tall else 0), bg=c("#dfe5f3"))
         s.line((3, y0 + rh - 1), (W - 4, y0 + rh - 1), c("#aeb8d4"))
     for i in range(1, n):
         s.line((i * T, 6), (i * T, H - 3), o)                  # 기둥
@@ -705,12 +711,12 @@ def nook(w, d):
     wood, o = c("#f4c88c"), c("#8a5a30")
     s.rr(8, 28, W - 9, 93, c("#fff1d8"), None, 0)                            # 안쪽 바닥
     # 소파
-    sofa, so = c("#ffd0dc"), c("#b06a84")
+    sofa, so = c("#efe4cc"), c("#a08860")
     s.rr(36, 46, W - 37, 86, sofa, so, 5, hi=c("#fff0f4"))
     s.rr(28, 56, 44, 90, lighten(sofa, 0.1), so, 4)
     s.rr(W - 45, 56, W - 29, 90, lighten(sofa, 0.1), so, 4)
     s.rr(44, 64, W - 45, 88, lighten(sofa, 0.35), so, 3)
-    s.line((W // 2, 66), (W // 2, 86), c("#e8a8bc"))
+    s.line((W // 2, 66), (W // 2, 86), c("#d8c8a4"))
     # 아치 기둥
     for x0 in (0, W - 30):
         s.rr(x0, 14, x0 + 29, 93, wood, o, 3)
@@ -726,6 +732,38 @@ def nook(w, d):
         s.rr(x + 1, 6, x + (W - 8) // (w * 2) - 2, 20, c("#e8b070"), shade(wood, 0.6), 1)
     s.shadow(0, W - 1, 60)
     return ret(s, w, d)
+
+
+def ovaltable(w):
+    """도서관 타원형(양 끝이 둥근) 큰 책상. 위에 종이와 휴대폰이 놓여 있어요. (가로 w칸, 세로 2칸)"""
+    W, H = w * T, 2 * T
+    s = S(W, H + PAD)
+    top, edge, o = c("#ebe5d8"), c("#cfc7b4"), c("#9a917c")
+    s.rr(T, H - 12, W - T, H - 2, shade(edge, 0.82), o, 4)                       # 받침
+    s.rr(0, 6, W - 1, H - 10, edge, o, 24)                                       # 두께
+    s.rr(0, 0, W - 1, H - 18, top, o, 24, hi=c("#ffffff"))                       # 윗면
+    for i in range(1, w - 1):                                                     # 종이
+        x = 6 + i * (W - 12) // (w - 1) - 8
+        y = 8 if i % 2 else H - 36
+        s.rr(x, y, x + 15, y + 11, c("#ffffff"), c("#a8a8b8"), 1)
+        for k in range(3):
+            s.line((x + 2, y + 3 + k * 3), (x + 13, y + 3 + k * 3), c("#c8c8d8"))
+    s.rr(W // 2 - 4, H // 2 - 14, W // 2 + 4, H // 2 - 5, c("#2a2a3e"), c("#16162a"), 1)   # 휴대폰
+    s.shadow(4, W - 5, 58)
+    return ret(s, w, 2)
+
+
+def hstool():
+    """창가 바 의자: 등받이 있는 높은 의자."""
+    s = S(T, 44 + PAD)
+    wood, leather = c("#b87a44"), c("#d99a64")
+    s.line((8, 28), (4, 43), c("#c8ccd8")); s.line((24, 28), (28, 43), c("#c8ccd8"))
+    s.line((10, 28), (10, 43), c("#a8acb8")); s.line((22, 28), (22, 43), c("#a8acb8"))
+    s.r(8, 36, 24, 37, c("#a8acb8"))                                              # 발 받침
+    s.rr(7, 2, 24, 17, leather, ol_of(leather), 3, hi=lighten(leather, 0.4))      # 등받이
+    s.rr(6, 16, 25, 28, lighten(leather, 0.15), ol_of(leather), 4)                # 방석
+    s.shadow(3, 28, 54)
+    return ret(s, 1, 1)
 
 
 def barcounter(n):
@@ -1239,7 +1277,8 @@ def get_sprite(name):
     if m:
         return chair(m.group(1), m.group(2))
     simple = {"desk": lambda: desk(), "desk_book": lambda: desk("book"), "desk_pencil": lambda: desk("pencil"),
-              "stool": stool, "plant": plant, "tree": tree, "tdesk": tdesk, "cubby_x": cubby, "ac": ac,
+              "desk_oak": lambda: desk("oak"), "desk_oak_book": lambda: desk("oakbook"), "desk_oak_pencil": lambda: desk("oakpencil"),
+              "stool": stool, "hstool": hstool, "plant": plant, "tree": tree, "tdesk": tdesk, "cubby_x": cubby, "ac": ac,
               "tabcart": tabcart, "bin": bin_, "trash": trash, "fridge": fridge, "dispenser": dispenser,
               "purifier": purifier, "glasscab": glasscab, "speaker": speaker, "ballcart": ballcart,
               "bookcart": bookcart, "extinguisher": extinguisher, "cone": cone, "ball": ball,
@@ -1252,6 +1291,8 @@ def get_sprite(name):
     pats = [(r"table_(\d+)x(\d+)_(\w+?)(_tray)?", lambda m: table(int(m[1]), int(m[2]), m[3], bool(m[4]))),
             (r"otable_(\d+)x(\d+)", lambda m: otable(int(m[1]), int(m[2]))),
             (r"wshelf_(\d+)", lambda m: wshelf(int(m[1]))),
+            (r"tshelf_(\d+)", lambda m: wshelf(int(m[1]), True)),
+            (r"ovaltable_(\d+)", lambda m: ovaltable(int(m[1]))),
             (r"lockerbank_(\d+)", lambda m: lockerbank(int(m[1]))),
             (r"bush_(\d+)", lambda m: bush(int(m[1]))),
             (r"backpack_(\w+)", lambda m: backpack(m[1])),

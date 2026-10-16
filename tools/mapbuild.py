@@ -25,12 +25,11 @@ AREAS = [
     ("c2", "복도", "corridor", 34, 9, 12, 6),             # 급식실 → 체육관 (가로)
     ("gym", "체육관", "wood", 46, 3, 22, 16),
     ("c3", "복도", "corridor", 58, 19, 8, 14),            # 체육관 → 도서관 (세로)
-    ("library", "도서관", "carpet", 46, 33, 20, 16),
+    ("library", "도서관", "mauve", 46, 33, 20, 16),
     ("c4", "복도", "corridor", 47, 49, 8, 14),            # 도서관 → 교실 (세로)
-    ("classroom", "교실", "plank", 46, 63, 20, 16),
+    ("classroom", "교실", "oak", 46, 63, 20, 16),
 ]
 PLAZA = (2, 35, 28, 5)      # 운동장 위쪽 단상 바닥 (x, y, w, h): 관중석·계단·구령대가 있는 줄
-ROOM_OFFSET = {"library": (39, -1), "classroom": (39, -2)}   # 옛 방 그림을 새 자리로 옮기는 이동량(칸)
 # 체육관 무대 양옆의 작은 방(준비실 등): 바닥에서 빼서 벽 덩어리로 만들어요 (x, y, 가로, 세로)
 GYM_ROOMS = [(46, 3, 6, 4), (62, 3, 6, 4)]
 # 체육관 세로 코트 2개 (x, 가로) — 위아래 y 8~17. 두 코트 사이(54~59)는 빈 공간이에요
@@ -183,10 +182,21 @@ def _draw_floor(d, th, tx, ty, X, Y):
             d.point((X + ox - 1, Y + oy), fill=c("#a58cd0"))
         d.line([(X, Y), (X + T - 1, Y)], fill=c("#c6b2e8"))
         d.line([(X, Y), (X, Y + T - 1)], fill=c("#c6b2e8"))
-    elif th in ("wood", "plank"):                          # 체육관/교실: 시원한 마루
+    elif th == "mauve":                                    # 도서관: 차분한 모브색 카펫
+        base = c("#8f7b86") if (tx + ty) % 2 == 0 else c("#897580")
+        fill(d, X, Y, base)
+        for (ox, oy) in ((8, 8), (24, 8), (8, 24), (24, 24)):
+            d.point((X + ox, Y + oy), fill=c("#a08c97"))
+            d.point((X + ox - 1, Y + oy), fill=c("#7d6a75"))
+        d.line([(X, Y), (X + T - 1, Y)], fill=c("#9b8892"))
+        d.line([(X, Y), (X, Y + T - 1)], fill=c("#9b8892"))
+    elif th in ("wood", "plank", "oak"):                   # 체육관/교실: 시원한 마루
         if th == "wood":
             cols = [c("#f9cd78"), c("#f4c46c"), c("#fcd685")]
             seam = c("#dc9a44")
+        elif th == "oak":                                  # 교실: 진한 오크 마루 (사진 ②)
+            cols = [c("#c68c52"), c("#bd8247"), c("#cf9760")]
+            seam = c("#8e5a2c")
         else:
             cols = [c("#f8dca4"), c("#f2d198"), c("#fbe4b4")]
             seam = c("#dcac70")
@@ -229,8 +239,8 @@ THEMES = {
     "playground": dict(kind="facade"),
     "cafeteria": dict(kind="paint", up="#fff1c4", lo="#ffa85a", style="tile"),
     "gym": dict(kind="paint", up="#fff0cc", lo="#e39a5a", style="wood"),
-    "library": dict(kind="paint", up="#f2e8ff", lo="#c8b0ec", style="panel"),
-    "classroom": dict(kind="paint", up="#e2f8e8", lo="#f0b878", style="wood"),
+    "library": dict(kind="paint", up="#eadfd2", lo="#b9a290", style="panel"),
+    "classroom": dict(kind="paint", up="#f1e8d3", lo="#cdbb98", style="panel"),
     "corridor": dict(kind="brick"),
 }
 CAP = "#4a4478"
@@ -340,7 +350,6 @@ def render_bg(b):
                 draw_floor(d, b.theme[y][x], x, y, X, Y, b)
             else:
                 draw_wall(d, b, x, y, kd, X, Y)
-    paint_rugs(bg, d, b)
     # 벽 아래 부드러운 그림자
     sh = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     ds = ImageDraw.Draw(sh)
@@ -388,13 +397,6 @@ def rug(bg, tx, ty, w, h, base, edge, dot):
             d.rectangle([xx, yy, xx + 2, yy + 1], fill=c(dot))
 
 
-def paint_rugs(bg, d, b):
-    ox, oy = ROOM_OFFSET["library"]
-    rug(bg, 8 + ox, 37 + oy, 7, 6, "#f4b6d0", "#e888b0", "#ffe0ee")          # 도서관: 탁자마다 다른 색 러그
-    rug(bg, 15 + ox, 40 + oy, 5, 5, "#a8e4d0", "#5cc0a0", "#e0fff4")
-    rug(bg, 21 + ox, 40 + oy, 5, 5, "#ffe08a", "#f0b83a", "#fff4c8")
-
-
 def paint_markings(bg, d, b):
     """바닥 표시(운동장 라인, 농구 코트, 퀴즈 존 매트, 복도 화살표)."""
     white = c("#fffdf2")
@@ -436,8 +438,7 @@ def paint_markings(bg, d, b):
             ry = yb if up else ya
             d.arc([ccx - 40, ry - 40, ccx + 40, ry + 40], 0 if up else 180, 180 if up else 360, fill=white, width=2)
     # ---- 교실: 퀴즈 존 매트
-    ox, oy = ROOM_OFFSET["classroom"]
-    qx0, qy0, qx1, qy1 = (12 + ox) * T, (72 + oy) * T, (22 + ox) * T, (76 + oy) * T
+    qx0, qy0, qx1, qy1 = 49 * T, 64 * T, 59 * T, 67 * T           # 칠판 앞쪽, 입구 오른쪽
     d.rounded_rectangle([qx0, qy0, qx1 - 1, qy1 - 1], 10, fill=c("#ee9a2a"))
     d.rounded_rectangle([qx0 + 1, qy0 + 1, qx1 - 2, qy1 - 2], 9, fill=c("#ffc83a"))
     d.rounded_rectangle([qx0 + 6, qy0 + 6, qx1 - 7, qy1 - 7], 6, fill=c("#fff3c0"), outline=c("#ee9a2a"))
@@ -574,56 +575,52 @@ def furnish(b):
     b.obj("plant", 46, 18)
     b.obj("plant", 67, 18)
 
-    # ============================================================ 도서관 (북쪽/남쪽 출입구)
-    b.ox, b.oy = ROOM_OFFSET["library"]
-    b.dec("window_3_blind", 8, 32)
-    b.dec("window_3_blind", 11, 32)
-    b.dec("poster_libguide", 14, 32, dx=0, dy=11)
-    b.obj("wshelf_2", 17, 34)
-    b.obj("barcounter_6", 8, 34)
-    for sx in (8, 10, 12):
-        b.obj("stool", sx, 35)
-    b.obj("nook", 14, 36)
-    b.obj("libcounter_4", 21, 40)
-    b.obj("otable_6x2", 9, 39)
+    # ============================================================ 도서관 (x 46..65, y 33..48) — 사진 ②
+    #   위 왼쪽: 창가 바 + 높은 의자 / 가운데 왼쪽: 아치 독서 공간, 타원형 큰 책상 / 오른쪽: 키 큰 흰 책장 3줄
+    #   출입구: 위쪽 오른쪽(복도 c3에서), 아래쪽 왼쪽(복도 c4로)
+    for x in (47, 50, 53):
+        b.dec("window_3_blind", x, 31)
+    b.dec("poster_libguide", 56, 31, dy=11)
+    b.obj("barcounter_8", 47, 33)
+    for x in (48, 50, 52, 54):
+        b.obj("hstool", x, 35)
+    b.obj("nook", 50, 37)
+    b.obj("ovaltable_8", 47, 42)
     wc = ["wht", "blk"]
-    for i in range(6):
-        b.obj(f"chair_{wc[i % 2]}_s", 9 + i, 38)
-        b.obj(f"chair_{wc[(i + 1) % 2]}_n", 9 + i, 41)
-    for sx in (20, 23):
-        b.obj("wshelf_3", sx, 47)
-    b.obj("benchc_3", 8, 46)
-    b.obj("bookcart", 15, 46)
-    for (tx, w, cc) in ((15, 4, ("wht", "blk")), (21, 4, ("blk", "wht"))):
-        b.obj(f"otable_{w}x2", tx, 42)
-        for i in range(w):
-            b.obj(f"chair_{cc[i % 2]}_s", tx + i, 41)
-            b.obj(f"chair_{cc[(i + 1) % 2]}_n", tx + i, 44)
-    b.obj("plant", 7, 49)
-    b.obj("plant", 26, 38)
+    for i in range(7):
+        b.obj(f"chair_{wc[i % 2]}_s", 48 + i, 41)
+        b.obj(f"chair_{wc[(i + 1) % 2]}_n", 48 + i, 44)
+    for y in (39, 43, 47):
+        for x in (58, 62):
+            b.obj("tshelf_4", x, y)
+    b.obj("bookcart", 57, 41)
+    b.obj("bookcart", 57, 45)
+    b.obj("benchc_3", 47, 46)
+    b.obj("plant", 46, 48)
+    b.obj("plant", 65, 34)
 
-    # ============================================================ 교실 (북쪽 출입구는 왼쪽 8칸)
-    b.ox, b.oy = ROOM_OFFSET["classroom"]
-    b.dec("flagwall", 16, 63, dx=2, dy=12)
-    b.dec("blackboard_6_퀴즈~시간!_steel", 18, 63, dy=-10)
-    b.dec("window_2_blind", 25, 63)
-    b.obj("cubby_x", 16, 65)
-    b.obj("lockerbank_6", 18, 65)
-    b.obj("tabcart", 24, 65)
-    b.obj("ac", 25, 65)
-    b.obj("bin", 26, 65)
-    b.obj("tdesk", 18, 67)
-    cols = [15, 16, 18, 19, 21, 22, 24, 25]
-    for ry in (68, 70, 77, 79):
-        for x in cols:
-            b.obj("desk_book" if (x + ry) % 3 == 0 else ("desk_pencil" if (x + ry) % 5 == 0 else "desk"), x, ry)
-            b.obj(["chair_grn_n", "chair_yel_n", "chair_blu_n", "chair_pnk_n", "chair_mnt_n"][(x + ry // 2) % 5], x, ry + 1)
-    b.obj("backpack_gr", 17, 70)
-    b.obj("backpack_bl", 20, 71)
-    b.obj("backpack_pk", 23, 69)
-    b.obj("backpack_gy", 26, 78)
-    b.obj("trash", 7, 80)
-    b.ox = b.oy = 0
+    # ============================================================ 교실 (x 46..65, y 63..78) — 사진 ②
+    #   위쪽 오른쪽: 칠판 + 초록/흰 사물함 + 에어컨 / 칠판 앞: 퀴즈 존 매트 + 교탁 / 아래: 나무 책상 짝꿍 4줄 + 초록 의자
+    #   출입구: 위쪽 왼쪽(복도 c4에서)
+    b.dec("flagwall", 55, 61, dx=2, dy=12)
+    b.dec("blackboard_6_퀴즈~시간!_steel", 57, 61, dy=-10)
+    b.dec("window_2_blind", 64, 61)
+    b.obj("cubby_x", 55, 63)
+    b.obj("lockerbank_6", 57, 63)
+    b.obj("tabcart", 63, 63)
+    b.obj("ac", 64, 63)
+    b.obj("bin", 65, 63)
+    b.obj("tdesk", 60, 65)
+    for ry in (67, 70, 73, 76):
+        for x in (49, 50, 52, 53, 55, 56, 58, 59, 61, 62):
+            b.obj("desk_oak_book" if (x + ry) % 7 == 0 else ("desk_oak_pencil" if (x + ry) % 11 == 0 else "desk_oak"), x, ry)
+            b.obj("chair_grn_n", x, ry + 1)
+    b.obj("backpack_gr", 47, 70)
+    b.obj("backpack_bl", 48, 73)
+    b.obj("backpack_pk", 47, 76)
+    b.obj("backpack_gy", 64, 74)
+    b.obj("trash", 46, 78)
+    b.obj("plant", 65, 78)
 
 
 SPAWN = (8, 46)      # 게임을 시작할 때 서 있는 칸 (운동장)
@@ -633,8 +630,8 @@ NPCS = [
     ("haneul", "하늘", "haneul", 16, 36, "down", "playground", "guide"),
     ("doyun", "도윤", "doyun", 9, 7, "down", "cafeteria", "guide"),
     ("seoyeon", "서연", "seoyeon", 56, 12, "down", "gym", "guide"),
-    ("jiu", "지우", "jiu", 61, 38, "down", "library", "guide"),
-    ("banjang", "반장", "banjang", 56, 72, "down", "classroom", "quiz"),
+    ("jiu", "지우", "jiu", 62, 35, "down", "library", "guide"),
+    ("banjang", "반장", "banjang", 57, 65, "down", "classroom", "quiz"),
     ("walker1", "민준", "extra_a", 15, 24, "down", "c1", "chat"),
     ("walker2", "채원", "extra_b", 40, 11, "left", "c2", "chat"),
     ("walker3", "서진", "extra_c", 61, 25, "down", "c3", "chat"),
@@ -690,7 +687,7 @@ def build():
     stuck = [(xx, yy) for yy in range(MAP_H) for xx in range(MAP_W) if b.floor[yy][xx] and not blocked[yy][xx] and (xx, yy) not in r]
     if stuck:
         print("!! 갇힌 칸 수:", len(stuck), stuck[:6])
-    print("교실 도달:", (56, 74) in r, " / 도달 가능한 칸:", len(r))
+    print("교실 도달:", (56, 66) in r, " / 도달 가능한 칸:", len(r))
     for (xx, yy) in npc_cells:
         blocked[yy][xx] = False
 
