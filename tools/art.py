@@ -68,6 +68,13 @@ def desk(variant=""):
         s.rr(16, 11, 25, 17, c("#fffdf2"), c("#9a8a6a"), 1)
         s.line((17, 13), (24, 13), c("#c8c0a8"))
         s.line((17, 15), (24, 15), c("#c8c0a8"))
+    elif variant == "quiz":                                # 퀴즈 책상: 열린 책 + 금색 별 스티커
+        s.rr(5, 10, 15, 18, c("#fffdf2"), c("#9a8a6a"), 1)
+        s.rr(16, 10, 26, 18, c("#fffdf2"), c("#9a8a6a"), 1)
+        s.line((16, 11), (16, 17), c("#c8c0a8"))
+        for (x, y) in ((20, 12), (21, 13), (19, 13), (22, 12), (20, 14)):
+            s.px(x, y, c("#ffc83a"))
+        s.px(21, 12, c("#ff9a3a"))
     elif variant == "pencil":
         s.line((8, 16), (22, 11), c("#ffd23a"))
         s.line((8, 17), (22, 12), c("#e8a820"))
@@ -1311,7 +1318,7 @@ def get_sprite(name):
     if m:
         return chair(m.group(1), m.group(2))
     simple = {"desk": lambda: desk(), "desk_book": lambda: desk("book"), "desk_pencil": lambda: desk("pencil"),
-              "desk_oak": lambda: desk("oak"), "desk_oak_book": lambda: desk("oakbook"), "desk_oak_pencil": lambda: desk("oakpencil"),
+              "desk_oak": lambda: desk("oak"), "desk_oak_quiz": lambda: desk("oakquiz"), "desk_oak_book": lambda: desk("oakbook"), "desk_oak_pencil": lambda: desk("oakpencil"),
               "stool": stool, "hstool": hstool, "plant": plant, "tree": tree, "tdesk": tdesk, "cubby_x": cubby, "ac": ac,
               "tabcart": tabcart, "bin": bin_, "trash": trash, "fridge": fridge, "dispenser": dispenser,
               "purifier": purifier, "glasscab": glasscab, "speaker": speaker, "ballcart": ballcart,

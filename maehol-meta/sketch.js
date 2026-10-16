@@ -1,21 +1,17 @@
 // noprotect
-// =====================================================================
-//  sketch.js  —  메타 투어 매홀 게임 코드 전부 (p5.js)
+// ===== sketch.js  —  메타 투어 매홀 게임 코드 전부 (p5.js) =====
 //  p5.js 가 setup() 을 한 번, draw() 를 1초에 약 60번 불러줘요.
 //  차례: 1.준비(불러오기)  2.입력·소리  3.꾸미기 도구  4.월드(맵·충돌·문·카메라)  5.티처블 머신  6.화면들  7.setup/draw
 //  파일 5개(폴더 없이): index.html · sketch.js(이 파일) · content.js(★ 직접 고치는 설정·대사·퀴즈) · data.js(맵 데이터+글꼴) · art.png(그림 전부)
 //  data.js, art.png 가 안 불러와지면 인터넷(GitHub)에서 대신 가져와요. (1. 준비의 파일 불러오기)
 //  ※ p5.js 이름(text, rect, select, dist 등)과 겹치지 않게 이름을 지었어요.
-// =====================================================================
 
 
-// =====================================================================
-//  1. 준비
-// =====================================================================
+// ===== 1. 준비 =====
 const [W, H, Z, T] = [1280, 720, 2, 32];  // 화면 가로·세로, 맵 확대 배율, 타일(한 칸) 크기(픽셀)
 const VW = W / Z, VH = H / Z;  // 화면에 보이는 맵의 크기(확대 전)
-const times = (n) => [...Array(n).keys()];  // times(3) → [0, 1, 2]  (반복할 때 써요. for(;;) · while 은 p5 웹 에디터의 반복문 보호 기능과 충돌해서 쓰지 않아요)
-let MAP, LIST, SCRIPT, QUIZ;  // 맵 데이터, 그림 위치 목록(data.js), 대사, 퀴즈(content.js) — 바로 아래 파일 불러오기 코드가 채워 줘요
+const times = (n) => [...Array(n).keys()];  // times(3) → [0, 1, 2]. 반복은 이걸로 해요 (for(;;)·while 은 p5 에디터의 반복문 보호와 충돌해요)
+let MAP, LIST, SCRIPT, QUIZ;  // 맵 데이터, 그림 위치(data.js), 대사, 퀴즈(content.js) — 파일 불러오기 코드가 채워 줘요
 const FONT = "Galmuri11";
 
 const AREAS = ["playground", "cafeteria", "gym", "library"];  // 소개를 들어야 하는 구역 (이 순서대로)
@@ -33,21 +29,21 @@ let done = {}, quizDone = false, best = null;  // 소개를 끝낸 구역, 퀴�
 try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) {}
 
 // ---- 파일 불러오기: 파일(content.js, data.js, art.png)을 여러 곳에서 동시에 가져와서, 먼저 성공한 걸 써요.
-//      1) 내 파일(p5 웹 에디터에 올린 것)  2) 3초 안에 안 되면 GitHub  3) 또 3초 뒤 jsDelivr(GitHub 파일을 대신 내주는 곳). 앞의 것이 실패하면 바로 다음 것을 시작해요.
+//      1) 내 파일(에디터에 올린 것) 2) 3초 안에 안 되면 GitHub 3) 또 3초 뒤 jsDelivr. 앞의 것이 실패하면 바로 다음 것을 시작해요.
 //      ※ 따옴표 친 파일 이름(content.js, data.js, art.png)은 딱 한 번씩만 써요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요. (인터넷용 이름 name 은 글자를 이어 붙여 만들었어요)
 const SHA = "4c4ab5ac13f933e4d989019cad8901f4c76cfd89";  // 인터넷에 올려 둔 파일 버전(커밋 번호)
 const ONLINE = [`https://raw.githubusercontent.com/MinsungKim805/Claude-projects/${SHA}/maehol-meta/`, `https://cdn.jsdelivr.net/gh/MinsungKim805/Claude-projects@${SHA}/maehol-meta/`];
-const FILES = [  // src = 내 파일(에디터가 주소로 바꿔 줘요), name = 인터넷에서 가져올 때 쓰는 이름, key = 파일이 만들어 주는 이름
+const FILES = [  // src = 내 파일, name = 인터넷용 이름, key = 파일이 만들어 주는 이름
   { src: "content.js", name: ["content", "js"].join("."), key: "MAEHOL_QUIZ", what: "설정·대사·퀴즈" },
   { src: "data.js", name: ["data", "js"].join("."), key: "MAEHOL_MAP", what: "맵 데이터·글꼴" },
 ];
 const ART = { src: "art.png", name: ["art", "png"].join("."), what: "그림 묶음" };
-const loadState = {}, tried = {}, phase = {}, manual = {};  // loadState: 파일 → "내 파일" / "인터넷" / "내 컴퓨터" / "없음",  tried: 실패한 이유들(실패 화면에 보여 줘요),  phase: 지금 하는 일,  manual: 내 컴퓨터에서 직접 고른 파일
+const loadState = {}, tried = {}, phase = {}, manual = {};  // loadState: 파일 → 어디서 받았나, tried: 실패 이유(실패 화면에 보여 줘요), phase: 지금 하는 일, manual: 내 컴퓨터에서 직접 고른 파일
 const hostOf = (u) => { try { return new URL(u, document.baseURI).host; } catch (e) { return "?"; } };
 const note = (f, u, why) => (tried[f.name] = tried[f.name] || []).push(`${u.startsWith("blob:") ? "내 컴퓨터" : hostOf(u)} ${why}`);
 const runScript = (text) => { const el = document.createElement("script"); el.text = text; document.head.appendChild(el); };  // 글자로 받은 코드를 실행해요
 
-// 가져오기를 하나씩 gap(ms) 간격으로 시작해서 먼저 성공한 값을 돌려줘요. 앞의 것이 실패하면 기다리지 않고 바로 다음 것을 시작해요. (모두 실패하면 null)
+// 가져오기를 gap(ms) 간격으로 하나씩 시작해서 먼저 성공한 값을 돌려줘요. 앞의 것이 실패하면 바로 다음을 시작해요. (모두 실패하면 null)
 function firstOk(tasks, gap = 3000) {
   return new Promise((ok) => {
     let next = 0, alive = 0, done = false, timer = 0;
@@ -65,7 +61,7 @@ function firstOk(tasks, gap = 3000) {
 const sources = (f) => (manual[f.name] ? [["내 컴퓨터", manual[f.name]]] : [["내 파일", f.src], ...ONLINE.map((base) => ["인터넷", base + f.name])]);  // [어디서, 주소]
 const fetchFirst = (f, get) => firstOk(sources(f).map(([who, src]) => async () => { phase[f.name] = who + "에서 받는 중"; const v = await get(src, f); return v && [v, who]; }));  // 성공하면 [값, 어디서]
 
-async function fetchText(src, f) {  // 주소의 글자(코드)를 받아요. 실패하면 이유를 적어 두고 null
+async function fetchText(src, f) {  // 주소의 글자(코드)를 받아요. 실패하면 null
   try {
     const r = await fetch(src, { signal: AbortSignal.timeout?.(40000) });
     if (!r.ok) throw new Error("HTTP " + r.status);
@@ -74,13 +70,13 @@ async function fetchText(src, f) {  // 주소의 글자(코드)를 받아요. �
     return t;
   } catch (e) { note(f, src, String(e.message || e).slice(0, 40)); return null; }
 }
-function tagScript(src, f) {  // script 태그로 불러와 실행해요 (fetch 가 막히는 내 컴퓨터의 file:// 주소 같을 때)
+function tagScript(src, f) {  // script 태그로 불러와 실행 (fetch 가 막히는 file:// 같을 때)
   return new Promise((done) => {
     const el = document.createElement("script"), end = (ok) => { clearTimeout(t); if (!ok) note(f, src, "script 태그로도 실패"); done(ok || null); }, t = setTimeout(() => end(false), 40000);
     el.onload = () => end(true); el.onerror = () => end(false); el.src = src; document.head.appendChild(el);
   });
 }
-async function loadFile(f) {  // content.js, data.js: 이미 불러와져 있으면 그대로 쓰고, 아니면 내 파일 → GitHub → jsDelivr 순서로 겨뤄서 가져와 실행해요
+async function loadFile(f) {  // content.js, data.js: 이미 있으면 그대로, 아니면 내 파일 → GitHub → jsDelivr 순서로 겨뤄서 가져와 실행
   if (window[f.key]) return "내 파일";
   const got = await firstOk(sources(f).map(([who, src]) => async () => {
     phase[f.name] = who + "에서 받는 중";
@@ -98,7 +94,7 @@ const loadSheet = (src, f) => new Promise((ok) => {
   const im = new Image(), fail = (why) => { clearTimeout(t); note(f, src, why); ok(null); }, t = setTimeout(() => fail("시간 초과"), 40000);
   im.onload = () => { clearTimeout(t); ok(im); }; im.onerror = () => fail("그림 불러오기 실패"); im.src = src;
 });
-function sliceSheet(sheet) {  // 묶음 그림을 조각조각 잘라요 (data.js 의 LIST 가 조각 위치를 알려줘요)
+function sliceSheet(sheet) {  // 묶음 그림을 조각으로 잘라요 (조각 위치는 data.js 의 LIST)
   for (const name in LIST.rects) {
     const [x, y, w, h] = LIST.rects[name], cut = Object.assign(document.createElement("canvas"), { width: w, height: h });
     cut.getContext("2d").drawImage(sheet, x, y, w, h, 0, 0, w, h);
@@ -108,7 +104,7 @@ function sliceSheet(sheet) {  // 묶음 그림을 조각조각 잘라요 (data.j
   }
 }
 
-// content.js 에 적은 대사·퀴즈가 빠짐없이 올바른지 점검해서, 문제 목록을 돌려줘요 (틀린 채로 시작하면 게임 도중에 멈추기 때문이에요)
+// content.js 의 대사·퀴즈가 올바른지 점검해서 문제 목록을 돌려줘요 (틀린 채 시작하면 게임 도중 멈춰요)
 function checkContent() {
   const bad = [], S = SCRIPT, C = window.CONFIG, lines = (a) => Array.isArray(a) && a.length > 0 && a.every((t) => typeof t === "string");
   const npcOf = (id, role) => MAP.npcs.some((n) => n.id === id && n.role === role);
@@ -129,7 +125,7 @@ function checkContent() {
   return bad;
 }
 
-// 인터넷도 안 될 때의 마지막 방법: 내 컴퓨터에 있는 파일(zip 을 푼 폴더의 content.js, data.js, art.png)을 직접 골라요
+// 마지막 방법: zip 을 푼 폴더의 content.js, data.js, art.png 를 직접 골라요
 function pickFiles() {
   const el = Object.assign(document.createElement("input"), { type: "file", multiple: true, accept: ".js,.png" });
   el.onchange = () => {
@@ -142,21 +138,20 @@ function pickFiles() {
 // 캐릭터 시트에서 한 장면을 오려서 그려요. 시트는 가로 3프레임(서기, 왼발, 오른발) x 세로 4방향이고,
 // 칸 하나는 30x46 픽셀이에요. s = 확대 배율, crop = 일부만 오릴 때 [x, y, 가로, 세로]
 const ROW = { down: 0, left: 1, right: 2, up: 3 };
+const SIT = [9, 34];  // 앉은 모습: 등 쪽 그림의 위쪽(머리~허리)만 내려서 앉은 것처럼 그려요 [내리는 양, 자를 높이]
 function sprite(key, dir, frame, x, y, s = 1, crop = [0, 0, 30, 46]) {
   const im = IMG.spr[key];
   if (im) drawingContext.drawImage(im, frame * 30 + crop[0], ROW[dir] * 46 + crop[1], crop[2], crop[3], Math.round(x), Math.round(y), crop[2] * s, crop[3] * s);
 }
 
 
-// =====================================================================
-//  2. 입력과 소리
-// =====================================================================
-let keys = {}, pressed = {}, click = null;  // 누르는 중인 키, 이번 프레임에 눌린 키, 이번 프레임의 클릭 위치
+// ===== 2. 입력과 소리 =====
+let keys = {}, pressed = {}, click = null;  // 누르는 중인 키, 이번 프레임에 눌린 키, 클릭 위치
 let motion = { dir: null, action: false, nav: 0 };  // 티처블 머신 동작 인식 결과
-// 키는 "KeyW" 같은 "자판 위치 이름"으로 확인해서, 한글 입력 상태(한/영)여도 WASD가 잘 먹어요.
+// 키는 "KeyW" 같은 자판 위치 이름으로 확인해서 한글 입력 상태여도 WASD가 먹어요.
 const KEY_BY_NUMBER = { 87: "KeyW", 65: "KeyA", 83: "KeyS", 68: "KeyD", 69: "KeyE", 77: "KeyM", 32: "Space", 13: "Enter", 27: "Escape", 37: "ArrowLeft", 38: "ArrowUp", 39: "ArrowRight", 40: "ArrowDown" };
 const KEY_BY_JAMO = { ㅈ: "KeyW", ㅉ: "KeyW", ㅁ: "KeyA", ㄴ: "KeyS", ㅇ: "KeyD", ㄷ: "KeyE", ㄸ: "KeyE", ㅡ: "KeyM" };  // 한글 자판으로 눌러도 같은 키
-let keyEvents = 0;  // 키보드 입력이 한 번이라도 들어왔는지 (안 들어오면 화면에 안내해요)
+let keyEvents = 0;  // 키보드 입력이 들어왔는지 (안 들어오면 안내해요)
 function keyId(e) {
   if (e.code && e.code !== "Unidentified") return e.code;  // 보통은 이걸로 충분해요
   if (KEY_BY_JAMO[e.key]) return KEY_BY_JAMO[e.key];  // code 가 없는 입력기(일부 태블릿·크롬북)
@@ -174,12 +169,12 @@ addEventListener("keydown", (e) => {
 });
 addEventListener("keyup", (e) => (keys[keyId(e)] = false));
 addEventListener("blur", () => (keys = {}));
-// 웹 에디터처럼 게임이 작은 창(iframe) 안에 있으면, 클릭해 주어야 키보드가 게임으로 들어와요. 클릭할 때마다 게임 창에 키보드를 맞춰 줘요.
+// 에디터처럼 게임이 작은 창(iframe) 안에 있으면 클릭해야 키보드가 들어와요. 클릭할 때마다 키보드를 게임에 맞춰 줘요.
 function focusGame() { try { window.focus(); document.querySelector("canvas")?.focus({ preventScroll: true }); } catch (e) {} }
 const down = (code) => keys[code];  // 지금 누르고 있나?
 const was = (code) => pressed[code];  // 이번 프레임에 막 눌렀나?
 const action = () => was("Space") || was("Enter") || was("KeyE") || motion.action;  // "확인" 키
-// 이동 방향 {x, y} (각각 -1, 0, 1). WASD/방향키가 우선이고, 아무것도 안 누르면 동작 인식을 써요.
+// 이동 방향 {x, y} (-1, 0, 1). WASD/방향키가 우선, 안 누르면 동작 인식
 let walkHold = false;  // 마우스(손가락)를 누른 채 걷는 중인가
 function moveVec() {
   let x = (down("KeyD") || down("ArrowRight") ? 1 : 0) - (down("KeyA") || down("ArrowLeft") ? 1 : 0);
@@ -221,9 +216,7 @@ function sfx(name) {
 }
 
 
-// =====================================================================
-//  3. 화면 꾸미기 도구 (p5.js 로 그려요)
-// =====================================================================
+// ===== 3. 화면 꾸미기 도구 (p5.js 로 그려요) =====
 // 글씨 쓰기. o = { align, valign, bold, color, outline } 옵션
 function txt(s, x, y, size, o = {}) {
   push();
@@ -356,10 +349,8 @@ function drawSettings() {
 }
 
 
-// =====================================================================
-//  4. 월드: 맵, 충돌, 잠긴 문, 카메라, 그리기
+// ===== 4. 월드: 맵, 충돌, 잠긴 문, 카메라, 그리기 =====
 //     좌표는 모두 "픽셀"이에요. 캐릭터의 x, y 는 발 위치예요.
-// =====================================================================
 let grid, gates, npcs, objs, decor, player, cam, sparks = [];
 
 function initWorld() {
@@ -377,7 +368,7 @@ function initWorld() {
 }
 function resetWorld() {  // 새 게임: 처음 상태로
   gates.forEach((g) => (g.open = false));
-  Object.assign(player, { key: charKey, x: (MAP.spawn.x + 0.5) * T, y: MAP.spawn.y * T + 27, dir: "down", moving: false });
+  Object.assign(player, { key: charKey, x: (MAP.spawn.x + 0.5) * T, y: MAP.spawn.y * T + 27, dir: "down", moving: false, sit: false });
   npcs.forEach((n) => (n.dir = n.home));
   sparks = [];
   openGates(false);
@@ -460,27 +451,26 @@ function drawWorld(hintGate) {
   for (const e of [...npcs, player]) {
     const isNpc = e !== player, frame = e.moving ? [1, 0, 2, 0][Math.floor(e.anim * 8) % 4] : 0;  // 걸을 때 1→0→2→0 반복
     if (!visible(e.x - 20, e.y - 50, 40, 60)) continue;
-    list.push({ sort: e.y, draw: () => sprite(e.key, e.dir, frame, e.x - 15 - cx, e.y - 43 - cy + (isNpc ? Math.round(Math.sin(clock * 2.2 + e.tx) * 0.6) : 0)) });
+    list.push({ sort: e.y, draw: () => e.sit ? sprite(e.key, "up", 0, e.x - 15 - cx, e.y - 43 + SIT[0] - cy, 1, [0, 0, 30, SIT[1]]) : sprite(e.key, e.dir, frame, e.x - 15 - cx, e.y - 43 - cy + (isNpc ? Math.round(Math.sin(clock * 2.2 + e.tx) * 0.6) : 0)) });
   }
-  list.push({ sort: player.y - 1, draw: () => { c.globalAlpha = 0.75 + 0.25 * Math.sin(clock * 4); c.drawImage(IMG.ui.ring, Math.round(player.x - 18 - cx), Math.round(player.y - 12 - cy)); c.globalAlpha = 1; } });  // 내 발밑 하이라이트 원
+  if (!player.sit) list.push({ sort: player.y - 1, draw: () => { c.globalAlpha = 0.75 + 0.25 * Math.sin(clock * 4); c.drawImage(IMG.ui.ring, Math.round(player.x - 18 - cx), Math.round(player.y - 12 - cy)); c.globalAlpha = 1; } });  // 내 발밑 하이라이트 원
   list.sort((a, b) => a.sort - b.sort).forEach((it) => it.draw());
   for (const n of npcs) {  // NPC 머리 위 말풍선 아이콘
     const icon = scene === "game" && mode === "explore" ? npcIcon(n) : null;
     if (icon && visible(n.x - 20, n.y - 90, 40, 70)) c.drawImage(IMG.ui[icon], Math.round(n.x - 9 - cx), Math.round(n.y - 86 - cy + Math.sin(clock * 4 + n.tx) * 2));
   }
+  if (scene === "game" && mode === "explore" && allDone() && !quizDone) c.drawImage(IMG.ui.bubble_exclaim, Math.round((MAP.seat.x + 0.5) * T - 9 - cx), Math.round((MAP.seat.y - 1) * T - 22 - cy + Math.sin(clock * 4) * 2));  // 퀴즈 책상 위 느낌표
   if (hintGate) { const g = gateCenter(hintGate); c.drawImage(IMG.ui.arrow_down, Math.round(g.x - 8 - cx), Math.round(g.y - 34 - cy + Math.sin(clock * 5) * 3)); }  // 방금 열린 문 위 화살표
   for (const q of sparks) { c.globalAlpha = Math.max(0, 1 - q.age / q.life); c.fillStyle = q.col; c.fillRect(Math.round(q.x - cx), Math.round(q.y - cy), 3, 3); }
   c.restore();
 }
 
 
-// =====================================================================
-//  5. 티처블 머신
+// ===== 5. 티처블 머신 =====
 //     얼굴 인식: 동훈 / 민성 / 성민 / No one  →  캐릭터 선택
 //     동작 인식: 위 / 아래 / 왼쪽 / 오른쪽 / 확인 →  캐릭터 이동
 //     content.js 의 링크가 비어 있으면 카메라도 모델도 켜지 않아요.
-//     흐름: 카메라 켜기 → 0.07초마다 카메라 그림을 모델에 넣기 → 결과(클래스 이름, 확률) → 캐릭터/방향으로 바꾸기
-// =====================================================================
+//     흐름: 카메라 켜기 → 0.07초마다 그림을 모델에 넣기 → 결과(클래스, 확률) → 캐릭터/방향
 const tm = {
   running: false, cameraOn: false, error: null, video: null, canvas: null,
   face: { status: "off", model: null, label: "", prob: 0, probs: [], key: null, none: false },  // key = 인식된 캐릭터, none = "No one"
@@ -512,14 +502,14 @@ function readMotion(label, prob) {
   if (m.dir !== old) motion.nav = m.dir === "up" ? -1 : m.dir === "down" ? 1 : 0;
   motion.dir = m.dir;
 }
-// 시험용: 카메라 없이 결과를 흉내 내요.  F12 콘솔에서  debugFace("민성", 0.95)  /  debugFace("No one")  /  debugMotion("오른쪽")
+// 시험용(F12 콘솔): debugFace("민성", 0.95) / debugFace("No one") / debugMotion("오른쪽")
 const debugFace = (label, prob = 0.95) => { tm.face.status = "준비됨(테스트)"; readFace(label, prob, [{ name: label, p: prob }]); };
 const debugMotion = (label, prob = 0.95) => { tm.motion.status = "준비됨(테스트)"; readMotion(label, prob); };
 
-// 필요한 라이브러리를 그때그때 불러와요 (링크가 없으면 불러오지 않아서 게임이 가벼워요)
+// 필요한 라이브러리를 그때그때 불러와요
 const scriptCache = {};
 const loadScript = (src) => (scriptCache[src] ||= new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => { delete scriptCache[src]; fail(new Error("라이브러리를 불러오지 못했어요 (인터넷을 확인해 주세요)")); }; document.head.appendChild(s); }));
-// 티처블 머신 라이브러리 주소 (티처블 머신 공식 안내와 같아요). 링크를 넣었을 때만 인터넷에서 불러와요.
+// 티처블 머신 라이브러리 주소. 링크를 넣었을 때만 불러와요.
 const LIB = {
   tf: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js",
   pose: "https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js",
@@ -581,11 +571,9 @@ function stopTeachable() {
 }
 
 
-// =====================================================================
-//  6. 화면들
+// ===== 6. 화면들 =====
 //     boot(불러오기) → title(시작 화면) → select(캐릭터 선택) → game(게임)
 //     화면마다 enter(들어올 때 한 번) / update(움직이기) / draw(그리기) 가 있어요.
-// =====================================================================
 const scenes = {};
 function goTo(name, arg) { scene = name; clock = 0; scenes[name].enter?.(arg); }
 
@@ -622,7 +610,7 @@ scenes.boot = {
       txt(`${f.what}   ${st ? "✓ " + st : phase[f.name] || "기다리는 중"}`, W / 2, H / 2 + 70 + i * 28, 17, { align: CENTER, color: st ? "#4fd17a" : "#b9b5e6" });
     });
   },
-  drawFail() {  // 파일이 없어서 시작할 수 없을 때: 뭐가 안 불러와졌는지, 왜 그런지, 어떻게 하면 되는지 알려줘요
+  drawFail() {  // 시작할 수 없을 때: 뭐가 왜 안 불러와졌는지, 어떻게 하면 되는지 알려줘요
     const [x, y, w, h] = [150, 60, 980, 600];
     if (boot.problems?.length) {  // 파일은 왔는데 content.js 내용이 틀렸을 때
       panel(x, y, w, h, { fill: "rgba(30,24,60,0.95)", border: "#ff9a9a" });
@@ -679,7 +667,7 @@ scenes.title = {
 //    얼굴 인식: 동훈/민성/성민 → 그 캐릭터가 골라져요.  "No one" → 아무도 고르지 않아요.
 //    링크가 비어 있으면 1·2·3 키나 클릭으로 골라요.
 // ---------------------------------------------------------------------
-let sel = 0, holdMs = 0, lastFace = null;  // 골라진 카드 번호, 같은 얼굴이 유지된 시간(ms), 직전에 인식된 얼굴
+let sel = 0, holdMs = 0, lastFace = null;  // 고른 카드, 같은 얼굴 유지 시간(ms), 직전 얼굴
 const cardX = (i) => 360 + i * 274;  // i번째 카드의 x 위치 (카드 크기 252 x 360, y 150)
 scenes.select = {
   enter() { sel = Math.max(0, CHARS.findIndex((c) => c.key === charKey)); holdMs = 0; lastFace = null; startTeachable(); },
@@ -699,7 +687,7 @@ scenes.select = {
       holdMs = f.key === lastFace ? holdMs + dt * 1000 : 0;  // 같은 얼굴이면 시간이 쌓여요
       lastFace = f.key;
       if (holdMs >= CONFIG.FACE_HOLD_MS) this.confirm();  // 충분히 유지되면 자동 시작!
-    } else { holdMs = 0; lastFace = null; }  // key 가 비면 "No one"이거나 확률이 낮은 경우: 아무것도 안 골라요
+    } else { holdMs = 0; lastFace = null; }  // key 가 비면 No one 이거나 확률이 낮은 경우
   },
   draw() {
     const g = drawingContext.createLinearGradient(0, 0, 0, H);  // 배경: 위에서 아래로 어두워지는 보라색 + 반짝이는 별
@@ -733,7 +721,7 @@ scenes.select = {
     }
     if (hov) { cursor("pointer"); if (clicked(x, y, w, h)) (sel === i ? this.confirm() : this.choose(i)); }  // 처음 클릭하면 고르기, 또 클릭하면 시작
   },
-  drawCamera() {  // 왼쪽 패널: 카메라 화면과 인식 결과 (링크가 비어 있으면 안내 문구)
+  drawCamera() {  // 왼쪽 패널: 카메라 화면과 인식 결과
     const [x, y, w, h] = [34, 150, 300, 360], f = tm.face;
     panel(x, y, w, h, { fill: "rgba(14,12,40,0.85)", border: "#6a66c0", r: 14 });
     if (!tmFaceUrl()) {
@@ -757,13 +745,13 @@ scenes.select = {
 //    mode:  "explore"(돌아다니는 중) / "dialogue"(대화 중) / "quiz"(퀴즈 푸는 중)
 // ---------------------------------------------------------------------
 let mode = "explore", dlg = null, quiz = null;  // 지금 모드, 진행 중인 대화, 진행 중인 퀴즈
-let zone = null, zoneT = 0, hintGate = null, nearNpc = null;  // 지금 장소, 장소 이름을 보여준 시간, 방금 열린 문, 가까이 있는 NPC
+let zone = null, zoneT = 0, hintGate = null, nearNpc = null, nearSeat = false;  // 지금 장소, 이름 보인 시간, 방금 열린 문, 가까운 NPC
 let cooldown = {}, gateCool = 0, mini = null;  // NPC별 쉬는 시간, 문 알림 간격, 미니맵 그림
 // 새 장소에 처음 들어가면 그 장소 사진을 반짝이는 효과와 함께 잠깐 보여줘요. (사진은 art.png 안에 있어요)
 const PHOTO_OF = { c1: "corr1", cafeteria: "cafeteria", gym: "gym", library: "library", classroom: "classroom" };  // 장소 → 사진 이름 (복도는 처음 만나는 본관 복도 c1 만)
 const PHOTO_T = 3.4;  // 사진이 떠 있는 시간(초)
 let seen = {}, photo = null;  // 이미 가 본 장소, 지금 보여주는 사진 {t, id, name}
-const shuffled = (q) => {   // 보기 순서를 섞고, 정답 번호(answer)도 그에 맞게 바꿔요. fixed: true 인 문제는 순서를 그대로 둬요
+const shuffled = (q) => {   // 보기를 섞고 정답 번호도 맞춰 바꿔요. fixed: true 면 그대로
   if (q.fixed) return q;
   const idx = q.choices.map((_, i) => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   return { ...q, choices: idx.map((i) => q.choices[i]), answer: idx.indexOf(q.answer) };
@@ -801,6 +789,7 @@ scenes.game = {
     if (mode === "explore") this.explore(dt);
     else if (mode === "dialogue") this.dialogue(dt);
     else if (mode === "photo") this.photoUpdate(dt);
+    else if (mode === "seated") this.seatedUpdate(dt);
     else this.quizUpdate(dt);
   },
 
@@ -813,14 +802,17 @@ scenes.game = {
       zone = z; zoneT = 0;
       const first = !seen[z.id];
       seen[z.id] = true;
-      if (first && IMG["photo_" + PHOTO_OF[z.id]]) { mode = "photo"; photo = { t: 0, id: PHOTO_OF[z.id], name: z.id === "classroom" ? "교실 (퀴즈 존)" : z.name }; sfx("open"); return; }  // 처음 온 곳이면 사진부터!
+      if (first && IMG["photo_" + PHOTO_OF[z.id]]) { mode = "photo"; photo = { t: 0, id: PHOTO_OF[z.id], name: z.name }; sfx("open"); return; }  // 처음 온 곳이면 사진부터!
     }
     zoneT += dt;
     if (hintGate && dist(player.x, player.y, gateCenter(hintGate).x, gateCenter(hintGate).y) < 56) hintGate = null;  // 문 가까이 가면 화살표 사라짐
     nearNpc = nearestNpc(46);
-    for (const n of npcs) {  // 아직 안 들은 소개 NPC에게 가까이 가면 자동으로 대화가 시작돼요
+    const sd = dist(player.x, player.y - 6, (MAP.seat.x + 0.5) * T, MAP.seat.y * T + 20);  // 퀴즈 의자와의 거리
+    nearSeat = sd < 46 && !(nearNpc && dist(player.x, player.y, nearNpc.x, nearNpc.y) < sd);
+    for (const n of npcs) {  // 안 들은 소개 NPC 가까이 가면 대화가 자동 시작
       if (n.role === "guide" && !done[n.area] && !cooldown[n.id] && dist(player.x, player.y, n.x, n.y) < 62) return this.talk(n);
     }
+    if (nearSeat && action()) return this.sit();       // 퀴즈 의자 앞에서 Space / Enter / E → 앉기
     if (nearNpc && action()) return this.talk(nearNpc);  // 가까이 가서 Space / Enter / E
     if ((move.x || move.y) && gateCool <= 0) {  // 닫힌 문에 부딪히면 이유를 알려줘요
       const g = closedGateNear(10);
@@ -834,13 +826,33 @@ scenes.game = {
     if (n.role === "guide") this.say(n, S.areas[n.area].lines, () => this.finishArea(n.area));  // 대사를 다 들으면 이 구역이 "완료"
     else if (n.role === "quiz") {  // 반장: 소개를 다 듣기 전엔 돌려보내요
       if (!allDone()) this.say(n, S.quiz.locked);
-      else this.say(n, quizDone ? S.quiz.again : S.quiz.intro, () => { mode = "quiz"; quiz = newQuiz(); });
+      else this.say(n, quizDone ? S.quiz.again : S.quiz.intro);
     } else this.say(n, S.chat[n.id] || ["안녕!"]);  // 복도 NPC: 학교 이야기를 들려줘요 (필수는 아니에요)
+  },
+  sit() {  // 퀴즈 책상 의자에 앉아요 → 시작 버튼이 나와요
+    Object.assign(player, { x: (MAP.seat.x + 0.5) * T, y: MAP.seat.y * T + 8, dir: "up", moving: false, sit: true });
+    mode = "seated"; sfx("select");
+  },
+  stand() { Object.assign(player, { y: (MAP.seat.y + 1) * T + 27, dir: "down", sit: false }); mode = "explore"; },
+  startQuiz() {
+    if (!allDone()) { toast("소개를 모두 끝내야 퀴즈를 시작할 수 있어요", "lock"); return sfx("wrong"); }
+    mode = "quiz"; quiz = newQuiz(); sfx("select");
+  },
+  seatedUpdate(dt) {  // 앉아 있는 동안: Space / Enter 로 시작, Esc / ↓ 로 일어나기
+    updateWorld(dt, { x: 0, y: 0 });
+    if (was("Escape") || was("ArrowDown") || was("KeyS")) this.stand();
+    else if (action()) this.startQuiz();
+  },
+  seatedDraw() {
+    const ok = allDone();
+    if (button(ok ? "퀴즈 시작하기!" : "소개를 더 들어야 해요", W / 2 - 180, 570, 360, 70, { size: 28, ...(ok ? {} : GRAY) })) this.startQuiz();
+    if (button("일어나기", W / 2 + 200, 584, 150, 44, { size: 20, ...BLUE })) this.stand();
+    txt(ok ? "Space · Enter: 시작     Esc · ↓: 일어나기" : "Esc · ↓: 일어나기", W / 2, 654, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });
   },
   say(npc, lines, onDone) {  // 대화창 열기. lines = 대사 목록, onDone = 끝난 뒤 할 일
     mode = "dialogue"; dlg = { npc, lines, idx: 0, shown: 0, done: false, onDone }; sfx("click");
   },
-  finishArea(area) {  // 소개를 끝냈을 때: 완료로 기록하고, 조건이 맞는 문을 열어요
+  finishArea(area) {  // 소개를 끝내면 완료로 기록하고 문을 열어요
     if (done[area]) return;
     done[area] = true;
     sfx("finish");
@@ -927,8 +939,8 @@ scenes.game = {
       if (action()) this.pick(quiz.sel);  // Space 로 확정
     } else if (quiz.state === "feedback" && quiz.t > 0.3 && (action() || click)) { click = null; this.next(); }
   },
-  closeQuiz() {  // 퀴즈 창을 닫으면 반장이 마무리 인사를 해요 (닫자마자 다시 퀴즈가 시작되지 않게 잠깐 쉬어요)
-    mode = "explore"; quiz = null; cooldown.banjang = 1.5;
+  closeQuiz() {  // 퀴즈를 닫으면 일어나서 반장이 마무리 인사를 해요
+    this.stand(); quiz = null; cooldown.banjang = 1.5;
     const n = npcs.find((x) => x.id === SCRIPT.quiz.npc);
     if (n && SCRIPT.quiz.after) this.say(n, SCRIPT.quiz.after);
   },
@@ -944,16 +956,21 @@ scenes.game = {
       nameTag(n.name, s.x, s.y - 4, "#b8ffd8", "rgba(10,40,30,0.75)");
       if (n === nearNpc && mode === "explore") { const tw = textW(n.name, 11, true) / 2 + 18; txt("대화", s.x + tw + keycap("Space", s.x + tw, s.y - 24) + 6, s.y - 20, 11, { bold: true, outline: "rgba(0,0,0,0.85)" }); }  // 가까이 가면 [Space] 대화 안내
     }
+    if (nearSeat && mode === "explore") {  // 퀴즈 의자 앞: [Space] 앉기 안내
+      const q = toScreen((MAP.seat.x + 0.5) * T, MAP.seat.y * T - 30), w = keycap("Space", q.x - 40, q.y + 4);
+      nameTag("퀴즈 자리", q.x, q.y, "#ffe27a", "rgba(60,40,10,0.78)"); txt("앉기", q.x - 40 + w + 6, q.y + 8, 11, { bold: true, outline: "rgba(0,0,0,0.85)" });
+    }
     const ps = toScreen(player.x, player.y - 48);
     nameTag(charName(player.key), ps.x, ps.y - 4, "#ffe27a", "rgba(60,40,10,0.78)");
     this.hud();
     if (mode === "dialogue" && dlg) drawDialogue(dlg);
     if (mode === "photo" && photo) this.photoDraw();
+    if (mode === "seated") this.seatedDraw();
     if (mode === "quiz") this.quizDraw();
   },
   // HUD = 게임 화면 위에 항상 떠 있는 정보
   hud() {
-    const zname = zone ? (zone.id === "classroom" ? "교실 (퀴즈 존)" : zone.name) : "운동장";
+    const zname = zone ? zone.name : "운동장";
     panel(16, 16, textW(zname, 22, true) + 56, 42, { fill: "rgba(20,22,50,0.86)", shadow: false });  // 왼쪽 위: 지금 있는 장소
     push(); noStroke(); fill("#ff6a6a"); ellipse(36, 34, 14); fill("#fff"); ellipse(36, 34, 5); pop();
     txt(zname, 52, 38, 22, { valign: CENTER, bold: true });
@@ -1043,9 +1060,7 @@ scenes.game = {
 };
 
 
-// =====================================================================
-//  7. p5.js 시작점
-// =====================================================================
+// ===== 7. p5.js 시작점 =====
 function setup() {
   const cv = createCanvas(W, H);
   if (!document.getElementById("game")) {  // index.html 이 기본 파일이어도 화면이 맞도록 직접 꾸며요
@@ -1060,7 +1075,7 @@ function setup() {
 }
 
 function draw() {
-  const dt = Math.min(deltaTime / 1000, 0.05);  // 지난 프레임 이후 흐른 시간(초). 컴퓨터가 느려도 속도가 같도록 곱해 줘요
+  const dt = Math.min(deltaTime / 1000, 0.05);  // 지난 프레임 이후 흐른 시간(초). 느린 컴퓨터도 속도가 같게 곱해 줘요
   clock += dt;
   cursor("default");
   drawingContext.imageSmoothingEnabled = false;
@@ -1069,7 +1084,7 @@ function draw() {
   scenes[scene].draw();  // 2) 그리기
   if (scene === "game" && mode !== "photo") drawToasts(dt);   // 사진이 떠 있는 동안은 알림을 잠깐 미뤄요
   drawSettings();
-  if (click && scene === "game" && mode === "explore" && !settingsOpen) {  // 4) 버튼이 쓰지 않은 클릭: NPC를 눌렀으면 대화, 아니면 그쪽으로 걷기
+  if (click && scene === "game" && mode === "explore" && !settingsOpen) {  // 4) 남은 클릭: NPC면 대화, 아니면 그쪽으로 걷기
     const s = nearNpc && toScreen(nearNpc.x, nearNpc.y - 22);
     if (s && Math.hypot(click.x - s.x, click.y - s.y) < 46) scenes.game.talk(nearNpc); else walkHold = true;
   }

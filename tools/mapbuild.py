@@ -437,22 +437,6 @@ def paint_markings(bg, d, b):
             d.rectangle([ccx - T, ya, ccx + T, yb], outline=white, width=2)
             ry = yb if up else ya
             d.arc([ccx - 40, ry - 40, ccx + 40, ry + 40], 0 if up else 180, 180 if up else 360, fill=white, width=2)
-    # ---- 교실: 퀴즈 존 매트
-    qx0, qy0, qx1, qy1 = 49 * T, 64 * T, 59 * T, 67 * T           # 칠판 앞쪽, 입구 오른쪽
-    d.rounded_rectangle([qx0, qy0, qx1 - 1, qy1 - 1], 10, fill=c("#ee9a2a"))
-    d.rounded_rectangle([qx0 + 1, qy0 + 1, qx1 - 2, qy1 - 2], 9, fill=c("#ffc83a"))
-    d.rounded_rectangle([qx0 + 6, qy0 + 6, qx1 - 7, qy1 - 7], 6, fill=c("#fff3c0"), outline=c("#ee9a2a"))
-    for xx in range(qx0 + 14, qx1 - 16, 12):
-        d.rectangle([xx, qy0 + 10, xx + 5, qy0 + 11], fill=c("#ffc83a"))
-        d.rectangle([xx + 6, qy1 - 12, xx + 11, qy1 - 11], fill=c("#ffc83a"))
-    for (cxx, cyy) in ((qx0 + 14, qy0 + 14), (qx1 - 15, qy0 + 14), (qx0 + 14, qy1 - 15), (qx1 - 15, qy1 - 15)):
-        d.polygon([(cxx, cyy - 4), (cxx + 1, cyy - 1), (cxx + 4, cyy - 1), (cxx + 2, cyy + 1), (cxx + 3, cyy + 4), (cxx, cyy + 2),
-                   (cxx - 3, cyy + 4), (cxx - 2, cyy + 1), (cxx - 4, cyy - 1), (cxx - 1, cyy - 1)], fill=c("#ff7a2a"))
-    t = text_image("QUIZ ZONE", c("#e8602a"), FONT11B, 11)
-    t = t.resize((t.width * 2, t.height * 2), Image.NEAREST)
-    bg.alpha_composite(t, ((qx0 + qx1) // 2 - t.width // 2, qy0 + 14))
-    t2 = text_image("퀴즈 존", c("#b8451a"), FONT11B, 11)
-    bg.alpha_composite(t2, ((qx0 + qx1) // 2 - t2.width // 2, qy1 - 28))
     # ---- 급식실: 배식 대기선 (배식대 앞)
     for xx in range(4 * T, 12 * T, 16):
         d.rectangle([xx, 5 * T + 6, xx + 9, 5 * T + 8], fill=c("#ffc83a"))
@@ -604,29 +588,33 @@ def furnish(b):
     b.obj("plant", 65, 34)
 
     # ============================================================ 교실 (x 46..65, y 63..78) — 사진 ②
-    #   위쪽 오른쪽: 칠판 + 초록/흰 사물함 + 에어컨 / 칠판 앞: 퀴즈 존 매트 + 교탁 / 아래: 나무 책상 짝꿍 4줄 + 초록 의자
-    #   출입구: 위쪽 왼쪽(복도 c4에서)
-    b.dec("flagwall", 55, 61, dx=2, dy=12)
+    #   앞쪽(위): 왼쪽 TV · 가운데 칠판 · 오른쪽 게시판, 칠판 앞 교탁에 반장, 교탁 바로 앞에 퀴즈 책상(앉으면 퀴즈 시작)
+    #   가운데: 나무 책상 짝꿍 3줄 + 초록 의자 / 뒤쪽(아래): 사물함. 출입구: 위쪽 왼쪽(복도 c4에서)
+    b.dec("tv", 55, 61, dy=8)
     b.dec("blackboard_6_퀴즈~시간!_steel", 57, 61, dy=-10)
-    b.dec("window_2_blind", 64, 61)
+    b.dec("bulletin_2", 63, 61, dy=12)
+    b.dec("clock", 65, 61, dx=2, dy=9)
     b.obj("cubby_x", 55, 63)
-    b.obj("lockerbank_6", 57, 63)
     b.obj("tabcart", 63, 63)
     b.obj("ac", 64, 63)
     b.obj("bin", 65, 63)
-    b.obj("tdesk", 60, 65)
-    for ry in (67, 70, 73, 76):
+    b.obj("tdesk", 59, 64)                                  # 교탁 (반장은 그 뒤에 서 있어요)
+    b.obj("desk_oak_quiz", SEAT[0], SEAT[1] - 1)            # 교탁 앞 퀴즈 책상 + 의자
+    b.obj("chair_grn_n", SEAT[0], SEAT[1])
+    for ry in (68, 71, 74):
         for x in (49, 50, 52, 53, 55, 56, 58, 59, 61, 62):
             b.obj("desk_oak_book" if (x + ry) % 7 == 0 else ("desk_oak_pencil" if (x + ry) % 11 == 0 else "desk_oak"), x, ry)
             b.obj("chair_grn_n", x, ry + 1)
+    b.obj("lockerbank_10", 51, 78)                          # 뒤쪽 사물함
     b.obj("backpack_gr", 47, 70)
     b.obj("backpack_bl", 48, 73)
-    b.obj("backpack_pk", 47, 76)
-    b.obj("backpack_gy", 64, 74)
+    b.obj("backpack_pk", 64, 71)
+    b.obj("backpack_gy", 64, 75)
     b.obj("trash", 46, 78)
     b.obj("plant", 65, 78)
 
 
+SEAT = (60, 67)      # 퀴즈 의자 칸: 교탁 바로 앞 책상의 의자 (앉으면 퀴즈를 시작해요)
 SPAWN = (8, 46)      # 게임을 시작할 때 서 있는 칸 (운동장)
 
 NPCS = [
@@ -635,7 +623,7 @@ NPCS = [
     ("doyun", "도윤", "doyun", 9, 7, "down", "cafeteria", "guide"),
     ("seoyeon", "서연", "seoyeon", 56, 12, "down", "gym", "guide"),
     ("jiu", "지우", "jiu", 62, 35, "down", "library", "guide"),
-    ("banjang", "반장", "banjang", 57, 65, "down", "classroom", "quiz"),
+    ("banjang", "반장", "banjang", 60, 63, "down", "classroom", "quiz"),
     ("walker1", "민준", "extra_a", 15, 24, "down", "c1", "chat"),
     ("walker2", "채원", "extra_b", 40, 11, "left", "c2", "chat"),
     ("walker3", "서진", "extra_c", 61, 25, "down", "c3", "chat"),
@@ -702,7 +690,7 @@ def build():
         objects=[dict(n=n, x=tx, y=ty) for (n, tx, ty) in b.objects],
         decor=[dict(n=n, x=px, y=py) for (n, px, py) in b.decor],
         npcs=[dict(id=i, name=nm, spr=sp, x=tx, y=ty, dir=dr, area=area, role=role) for (i, nm, sp, tx, ty, dr, area, role) in NPCS],
-        gates=gates, zones=zones, spawn=dict(x=SPAWN[0], y=SPAWN[1]),
+        gates=gates, zones=zones, spawn=dict(x=SPAWN[0], y=SPAWN[1]), seat=dict(x=SEAT[0], y=SEAT[1]),
         order=["playground", "cafeteria", "gym", "library"],
     )
     return dict(bg=bg, data=data, sprites=b.sprite_info, builder=b, blocked=blocked)
