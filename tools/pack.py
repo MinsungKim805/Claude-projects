@@ -11,6 +11,7 @@ p5 웹 에디터의 업로드 규칙(한 번에 6개, 파일당 5MB, 글꼴은 t
 """
 import base64
 import json
+import glob
 import os, re
 import zipfile
 
@@ -40,6 +41,19 @@ def pack(items, width=1024, gap=1):
     return atlas, rects
 
 
+PHOTO_W, PHOTO_H = 640, 360        # 장소 사진 크기 (art.png 안에 같이 담겨요)
+
+
+def load_photos():
+    """tools/reference/places/*.webp 를 작게 줄이고 색 수를 줄여서 [(이름, 이미지)] 로 돌려줘요."""
+    out = []
+    for f in sorted(glob.glob(os.path.join(HERE, "reference", "places", "*.webp"))):
+        im = Image.open(f).convert("RGB").resize((PHOTO_W, PHOTO_H), Image.LANCZOS)
+        im = im.quantize(96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).convert("RGBA")
+        out.append((os.path.splitext(os.path.basename(f))[0], im))
+    return out
+
+
 def build_art(assets_dir, objects, sprites, ui, has_title):
     """맵 배경 + 시작 화면 + 가구·캐릭터·아이콘 → 한 장 (art.png). 반환: (이미지, {이름: [x, y, w, h]})"""
     items = [(n, Image.open(os.path.join(assets_dir, "objects", info["file"]))) for n, info in objects.items()]
@@ -49,7 +63,11 @@ def build_art(assets_dir, objects, sprites, ui, has_title):
     bg = Image.open(os.path.join(assets_dir, "backgrounds", "map.png")).convert("RGBA")
     title = Image.open(os.path.join(assets_dir, "backgrounds", "title.png")).convert("RGBA") if has_title else None
     tw, th = title.size if title else (0, 0)
-    art = Image.new("RGBA", (max(bg.width, tw + atlas.width), bg.height + max(th, atlas.height)), (0, 0, 0, 0))
+    photos = load_photos()                                       # 장소 사진(처음 들어갈 때 보여줘요)
+    top_h = bg.height + max(th, atlas.height)
+    width = max(bg.width, tw + atlas.width)
+    cols = max(1, width // PHOTO_W)
+    art = Image.new("RGBA", (width, top_h + -(-len(photos) // cols) * PHOTO_H), (0, 0, 0, 0))
     art.alpha_composite(bg, (0, 0))
     out = {"img:bg": [0, 0, bg.width, bg.height]}
     if title:
@@ -58,6 +76,10 @@ def build_art(assets_dir, objects, sprites, ui, has_title):
     art.alpha_composite(atlas, (tw, bg.height))
     for name, (x, y, w, h) in rects.items():
         out[name] = [x + tw, y + bg.height, w, h]
+    for i, (name, im) in enumerate(photos):
+        x, y = (i % cols) * PHOTO_W, top_h + (i // cols) * PHOTO_H
+        art.alpha_composite(im, (x, y))
+        out[f"img:photo_{name}"] = [x, y, PHOTO_W, PHOTO_H]
     return art, out
 
 
@@ -136,7 +158,7 @@ def write_game(assets_dir, MAP, objects, sprites, ui, has_title):
                     print(f"!! {name} {no}번째 줄에 for(;;) / while 반복문이 있어요. for...of, times(n), forEach 로 바꿔 주세요: {line.strip()[:60]}")
     for name in ("sketch.js", "content.js", "index.html"):     # 80KB 가 넘는 js 는 웹 에디터에서 고칠 수 없는 파일로 올라가요
         size = os.path.getsize(os.path.join(GAME, name))
-        if size > 78000:
-            print(f"!! {name} 가 {size}바이트예요. 웹 에디터에서 고칠 수 없는 파일로 올라갈 수 있어요. (기준 78000)")
+        if size > 79000:
+            print(f"!! {name} 가 {size}바이트예요. 웹 에디터에서 고칠 수 없는 파일로 올라갈 수 있어요. (기준 79000, 에디터 한도 80000)")
     write_zip()
     print(f"art.png {art.width}x{art.height} ({len(rects)}장 묶음), data.js {os.path.getsize(os.path.join(GAME, 'data.js')) // 1024}KB, maehol-meta.zip 만들었어요")
