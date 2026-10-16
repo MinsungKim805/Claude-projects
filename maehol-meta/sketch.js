@@ -31,7 +31,7 @@ try { best = parseInt(localStorage.getItem("maehol_best")) || null; } catch (e) 
 // ---- 파일 불러오기: 파일(content.js, game.js, data.js, art.png)을 여러 곳에서 동시에 가져와서, 먼저 성공한 걸 써요.
 //      1) 내 파일(에디터에 올린 것) 2) 3초 안에 안 되면 GitHub 3) 또 3초 뒤 jsDelivr. 앞의 것이 실패하면 바로 다음 것을 시작해요.
 //      ※ 따옴표 친 파일 이름(content.js, game.js, data.js, art.png)은 딱 한 번씩만 써요. p5 웹 에디터가 올린 파일의 긴 주소로 바꿔 버리기 때문이에요. (인터넷용 이름 name 은 글자를 이어 붙여 만들었어요)
-const SHA = "a88ecd10c18c020811d1c7d13a942556a8d9e270";  // 인터넷에 올려 둔 파일 버전(커밋 번호)
+const SHA = "f2ab3c821b0e073e0bbd6ebb8f0b4132c34549a4";  // 인터넷에 올려 둔 파일 버전(커밋 번호)
 const ONLINE = [`https://raw.githubusercontent.com/MinsungKim805/Claude-projects/${SHA}/maehol-meta/`, `https://cdn.jsdelivr.net/gh/MinsungKim805/Claude-projects@${SHA}/maehol-meta/`];
 const FILES = [  // src = 내 파일, name = 인터넷용 이름, key = 파일이 만들어 주는 이름
   { src: "content.js", name: ["content", "js"].join("."), key: "MAEHOL_QUIZ", what: "설정·대사·퀴즈" },
