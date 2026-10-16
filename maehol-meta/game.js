@@ -427,7 +427,10 @@ scenes.game = {
     Object.assign(player, { x: (MAP.seat.x + 0.5) * T, y: MAP.seat.y * T + 8, dir: "up", moving: false, sit: true });
     mode = "seated"; sfx("select");
   },
-  stand() { Object.assign(player, { y: (MAP.seat.y + 1) * T + 27, dir: "down", sit: false }); mode = "explore"; },
+  stand() {  // 의자 왼쪽으로 일어나요 (막혀 있으면 아래쪽, 오른쪽 순서로)
+    const [dx, dy] = [[-1, 0], [0, 1], [1, 0]].find(([dx, dy]) => !footBlocked((MAP.seat.x + dx + 0.5) * T, (MAP.seat.y + dy) * T + 27)) || [0, 1];
+    Object.assign(player, { x: (MAP.seat.x + dx + 0.5) * T, y: (MAP.seat.y + dy) * T + 27, dir: "down", sit: false }); mode = "explore";
+  },
   startQuiz() {
     if (!allDone()) { toast("소개를 모두 끝내야 퀴즈를 시작할 수 있어요", "lock"); return sfx("wrong"); }
     mode = "quiz"; quiz = newQuiz(); sfx("select");
