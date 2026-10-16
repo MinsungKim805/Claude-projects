@@ -1,9 +1,9 @@
 """그림을 한 장(art.png)으로 묶고, 게임이 읽는 데이터 파일(data.js)을 만들어요.   (make_assets.py 가 불러서 써요)
 
 게임 파일은 maehol-meta/ 폴더 안에 폴더 없이 한곳에 있어요:
-  index.html  sketch.js  content.js   ← 직접 쓰는 파일 (이 도구가 건드리지 않아요)
+  index.html  sketch.js  game.js  content.js   ← 직접 쓰는 파일 (이 도구가 건드리지 않아요)
   data.js     art.png                  ← 이 도구가 만들어요
-그리고 이 5개 파일을 묶은 maehol-meta.zip 도 레포 맨 위에 만들어요.
+그리고 이 6개 파일을 묶은 maehol-meta.zip 도 레포 맨 위에 만들어요.
 
 p5 웹 에디터의 업로드 규칙(한 번에 6개, 파일당 5MB, 글꼴은 ttf/otf만)에 맞추려고
   - 가구·캐릭터·아이콘·맵 배경·시작 화면 그림을 art.png 한 장에 모두 담고
@@ -19,8 +19,8 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-GAME = os.path.join(ROOT, "maehol-meta")      # 게임 파일 5개가 들어 있는 폴더
-GAME_FILES = ("index.html", "sketch.js", "content.js", "data.js", "art.png")
+GAME = os.path.join(ROOT, "maehol-meta")      # 게임 파일 6개가 들어 있는 폴더
+GAME_FILES = ("index.html", "sketch.js", "game.js", "content.js", "data.js", "art.png")
 FONTS = [("Galmuri11", 400, "Galmuri11.woff2"), ("Galmuri11", 700, "Galmuri11-Bold.woff2"), ("Galmuri9", 400, "Galmuri9.woff2")]
 
 
@@ -106,27 +106,27 @@ def build_data(MAP, objects, rects):
 
 GUIDE = """메타 투어 매홀 - p5.js 웹 에디터에 올리기
 =========================================
-maehol-meta 폴더 안의 파일 5개(index.html, sketch.js, content.js, data.js, art.png)를 한 번에 올리면 돼요.
+maehol-meta 폴더 안의 파일 6개(index.html, sketch.js, game.js, content.js, data.js, art.png)를 한 번에 올리면 돼요. (한 번에 6개까지 올릴 수 있어요)
 
 1. https://editor.p5js.org 에서 로그인 -> 파일(File) > 새로 만들기(New)
 2. 왼쪽 Sketch Files 의 기본 파일 index.html, sketch.js 를 먼저 삭제해요. (이름 옆 화살표 > Delete)
    (같은 이름은 덮어쓰기가 안 되고 sketch-1.js 처럼 이름만 바뀌어 올라가기 때문이에요. style.css 는 그냥 둬도 돼요.)
-3. Sketch Files 옆 화살표 > Upload file 에서 5개 파일을 모두 선택해서 올려요.
+3. Sketch Files 옆 화살표 > Upload file 에서 6개 파일을 모두 선택해서 올려요.
 4. 위쪽 재생(Play) 버튼을 눌러요.
 
 - 대사/퀴즈는 에디터에서 content.js 를 열어 고치고 재생을 다시 눌러요.
 - 키보드가 안 먹으면 게임 화면을 한 번 클릭하세요. (화면을 누른 채로도 걸을 수 있어요)
-- 내 컴퓨터에서 하려면 5개 파일을 한 폴더에 두고 index.html 을 더블클릭해요. (인터넷 필요)
+- 내 컴퓨터에서 하려면 6개 파일을 한 폴더에 두고 index.html 을 더블클릭해요. (인터넷 필요)
 
 [안 될 때]
-- data.js, art.png 가 안 불러와지거나 이름이 data-1.js 처럼 바뀌어 있어도, 게임이 같은 파일을 인터넷(GitHub)에서 대신 가져와서 시작해요.
+- data.js, art.png, game.js 가 안 불러와지거나 이름이 data-1.js 처럼 바뀌어 있어도, 게임이 같은 파일을 인터넷(GitHub)에서 대신 가져와서 시작해요.
   (내가 그림이나 맵을 고쳤다면 내 파일이 제대로 불러와져야 반영돼요.)
-- 모두 실패하면 화면에 어떤 파일이 왜 안 불러와졌는지 나와요. [내 컴퓨터에서 파일 고르기] 버튼으로 이 폴더의 content.js, data.js, art.png 를 직접 골라도 돼요.
+- 모두 실패하면 화면에 어떤 파일이 왜 안 불러와졌는지 나와요. [내 컴퓨터에서 파일 고르기] 버튼으로 이 폴더의 content.js, game.js, data.js, art.png 를 직접 골라도 돼요.
 """
 
 
 def write_zip():
-    """게임 파일 5개를 maehol-meta.zip 으로 묶어요 (폴더 안에는 파일 5개뿐이에요)."""
+    """게임 파일 6개를 maehol-meta.zip 으로 묶어요 (폴더 안에는 파일 6개뿐이에요)."""
     zpath = os.path.join(ROOT, "maehol-meta.zip")
     with zipfile.ZipFile(zpath, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("읽어보세요.txt", GUIDE)
@@ -144,19 +144,19 @@ def write_game(assets_dir, MAP, objects, sprites, ui, has_title):
     # 웹 에디터는 sketch.js 안에서 따옴표로 감싼 파일 이름("art.png" 처럼)을 올린 파일의 주소로 바꿔요 → 따옴표 친 이름이 각각 딱 한 번만 있어야 해요
     with open(os.path.join(GAME, "sketch.js"), encoding="utf-8") as f:
         code = f.read()
-    for name in ("art.png", "data.js", "content.js"):
+    for name in ("art.png", "data.js", "content.js", "game.js"):
         n = len(re.findall(r"""["']""" + re.escape(name) + r"""["']""", code))
         if n != 1:
             print(f"!! sketch.js 안에 따옴표 친 {name} 이 {n}번 있어요. 딱 한 번만 쓰세요. (주석·안내 글에는 따옴표 없이 써요)")
     # p5 웹 에디터는 for(;;) · while 반복문에 '반복문 보호' 코드를 끼워 넣는데, 중첩된 반복문에서는 변수 선언이 빠져 ReferenceError(_LP1 is not defined)가 나요
     # → 반복은 for...of / times(n) / forEach 로만 써요. (index.html 맨 위의 noprotect 표시는 에디터 기본 index.html 로 실행하면 소용없어요)
-    for name in ("sketch.js", "content.js"):
+    for name in ("sketch.js", "game.js", "content.js"):
         with open(os.path.join(GAME, name), encoding="utf-8") as f:
             for no, line in enumerate(f.read().splitlines(), 1):
                 code = re.sub(r"//.*", "", line)
                 if re.search(r"\bwhile\s*\(|\bdo\s*\{", code) or (re.search(r"\bfor\s*\(", code) and not re.search(r"\bfor\s*\(\s*(const|let|var)\s+(\[[^\]]*\]|\{[^}]*\}|\w+)\s+(of|in)\b", code)):
                     print(f"!! {name} {no}번째 줄에 for(;;) / while 반복문이 있어요. for...of, times(n), forEach 로 바꿔 주세요: {line.strip()[:60]}")
-    for name in ("sketch.js", "content.js", "index.html"):     # 80KB 가 넘는 js 는 웹 에디터에서 고칠 수 없는 파일로 올라가요
+    for name in ("sketch.js", "game.js", "content.js", "index.html"):     # 80KB 가 넘는 js 는 웹 에디터에서 고칠 수 없는 파일로 올라가요
         size = os.path.getsize(os.path.join(GAME, name))
         if size > 79000:
             print(f"!! {name} 가 {size}바이트예요. 웹 에디터에서 고칠 수 없는 파일로 올라갈 수 있어요. (기준 79000, 에디터 한도 80000)")
