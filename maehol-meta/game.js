@@ -9,8 +9,8 @@
 // ===== 4. 월드: 맵, 충돌, 잠긴 문, 카메라, 그리기 =====
 //     좌표는 모두 "픽셀"이에요. 캐릭터의 x, y 는 발 위치예요.
 let grid, gates, npcs, objs, decor, player, cam, sparks = [];
-const TEST_MODE = /[?&]unlock/.test(location.search);  // 주소 뒤에 ?unlock → 시험 모드
-const fastWalk = () => TEST_MODE && ["ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight"].some((k) => down(k));  // 시험 모드: Ctrl(또는 Shift)을 누르고 걸으면 3배 빨라요
+const testMode = () => /[?&]unlock/.test(location.search) || window.CONFIG?.TEST_MODE === true;  // 주소 뒤에 ?unlock 또는 content.js 의 TEST_MODE: true → 시험 모드
+const fastWalk = () => testMode() && ["ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight"].some((k) => down(k));  // 시험 모드: Ctrl(또는 Shift)을 누르고 걸으면 3배 빨라요
 
 function initWorld() {
   grid = MAP.collision.map((row) => [...row].map((c) => c === "1"));  // 칸마다 true(벽) / false(걸을 수 있음)
@@ -380,7 +380,7 @@ scenes.game = {
       done = {}; seen = {}; quizDone = false; mode = "explore"; dlg = quiz = hintGate = zone = photo = null; cooldown = {}; toasts = [];
       resetWorld();
       toast("W A S D 로 걸어 다녀요!", "star");
-      if (TEST_MODE) { AREAS.forEach((a) => (done[a] = true)); openGates(false); toast("시험 모드: 모든 문이 열려 있어요 · Ctrl(또는 Shift)을 누르고 걸으면 빨라요", "check"); }  // 주소 뒤에 ?unlock → 모든 문이 열려요
+      if (testMode()) { AREAS.forEach((a) => (done[a] = true)); openGates(false); toast("시험 모드: 모든 문이 열려 있어요 · Ctrl(또는 Shift)을 누르고 걸으면 빨라요", "check"); }  // 주소 뒤에 ?unlock → 모든 문이 열려요
     }
     player.key = charKey;
     if (!mini) {  // 미니맵: 맵 큰 그림을 작게 줄여서 한 번만 만들어 둬요
@@ -622,6 +622,7 @@ scenes.game = {
     }
     if (mode === "explore" && keyEvents === 0 && clock > 3) txt("키보드가 안 되면 화면을 한 번 클릭하세요  ·  마우스를 누르고 있으면 그쪽으로 걸어가요", W / 2, 690, 11, { align: CENTER, color: "#ffe27a", outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 키보드 입력이 없을 때 안내
     else if (mode === "explore" && clock < 14) txt("WASD 이동  ·  Space 대화  ·  Esc 설정", W / 2, 690, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 처음 14초 동안 조작 힌트
+    if (testMode() && mode === "explore") txt(fastWalk() ? "시험 모드  >> 빠르게 걷는 중" : "시험 모드  ·  Ctrl(또는 Shift)을 누르고 걸으면 빨라요", 20, 690, 11, { color: "#9affc0", outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 시험 모드 표시
     if (walkHold && mouseIsPressed && mode === "explore") { push(); noFill(); stroke(255, 255, 255, 200); strokeWeight(3); circle(mouseX, mouseY, 28 + Math.sin(clock * 10) * 5); pop(); }  // 누르고 있는 곳 표시
     if (zoneT < 2.4 && mode === "explore") { push(); drawingContext.globalAlpha = Math.max(0, Math.min(1, zoneT / 0.3, (2.4 - zoneT) / 0.5)); txt(zname, W / 2, 170, 40, { align: CENTER, bold: true, outline: "#2a1a50", outlineW: 8 }); pop(); }  // 새 장소에 들어서면 큰 글씨로
   },
