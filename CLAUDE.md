@@ -58,12 +58,12 @@
 3. `sketch.js`의 `const SHA = "..."`를 그 커밋 SHA로 변경.
 4. `pack.write_zip()`으로 zip 다시 만들기.
 5. 테스트.
-6. 커밋 & **두 브랜치 모두** 푸시.
+6. 커밋 & `main`에 푸시 (작업 브랜치·`claude/main`도 같이).
 
 ### 브랜치
-- 작업 브랜치: `claude/hopeful-thompson-c4ruz5`
-- 기본 브랜치: `claude/main` (사용자가 "main에 푸시"라고 하면 이것. `main` 브랜치는 없음). fast-forward만.
-- 항상 두 브랜치 모두 푸시. PR은 요청할 때만.
+- **GitHub 푸시 대상은 `main`** (사용자 지정: "깃헙 푸시는 Claude-project/main 으로"). fast-forward만.
+- 작업 브랜치 `claude/hopeful-thompson-c4ruz5`, GitHub 기본 브랜치 `claude/main`도 같은 커밋으로 맞춰 둠.
+- PR은 요청할 때만.
 
 ### 테스트
 - Playwright + Chromium(`/opt/pw-browsers/chromium`, `playwright install` 금지), 로컬 node 정적 서버.
