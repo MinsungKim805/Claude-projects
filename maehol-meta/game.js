@@ -9,6 +9,8 @@
 // ===== 4. 월드: 맵, 충돌, 잠긴 문, 카메라, 그리기 =====
 //     좌표는 모두 "픽셀"이에요. 캐릭터의 x, y 는 발 위치예요.
 let grid, gates, npcs, objs, decor, player, cam, sparks = [];
+const TEST_MODE = /[?&]unlock/.test(location.search);  // 주소 뒤에 ?unlock → 시험 모드
+const fastWalk = () => TEST_MODE && ["ControlLeft", "ControlRight", "ShiftLeft", "ShiftRight"].some((k) => down(k));  // 시험 모드: Ctrl(또는 Shift)을 누르고 걸으면 3배 빨라요
 
 function initWorld() {
   grid = MAP.collision.map((row) => [...row].map((c) => c === "1"));  // 칸마다 true(벽) / false(걸을 수 있음)
@@ -70,11 +72,12 @@ function updateWorld(dt, move) {
   if (len > 0) {
     x /= len; y /= len;  // 대각선으로 가도 빨라지지 않게 길이를 1로
     player.dir = move.x && Math.abs(move.x) >= Math.abs(move.y) ? (move.x < 0 ? "left" : "right") : move.y < 0 ? "up" : "down";
-    const nx = player.x + x * CONFIG.PLAYER_SPEED * dt;  // 가로, 세로를 따로 움직여서 벽에 미끄러지게 해요
+    const fast = fastWalk(), sp = CONFIG.PLAYER_SPEED * (fast ? 3 : 1) * dt;
+    const nx = player.x + x * sp;  // 가로, 세로를 따로 움직여서 벽에 미끄러지게 해요
     if (!footBlocked(nx, player.y)) player.x = nx;
-    const ny = player.y + y * CONFIG.PLAYER_SPEED * dt;
+    const ny = player.y + y * sp;
     if (!footBlocked(player.x, ny)) player.y = ny;
-    player.anim += dt;
+    player.anim += fast ? dt * 2 : dt;
   } else player.anim = 0;
   for (const n of npcs) {  // NPC는 가까이 오면 나를 바라봐요
     const dx = player.x - n.x, dy = player.y - n.y;
@@ -377,7 +380,7 @@ scenes.game = {
       done = {}; seen = {}; quizDone = false; mode = "explore"; dlg = quiz = hintGate = zone = photo = null; cooldown = {}; toasts = [];
       resetWorld();
       toast("W A S D 로 걸어 다녀요!", "star");
-      if (/[?&]unlock/.test(location.search)) { AREAS.forEach((a) => (done[a] = true)); openGates(false); toast("시험 모드: 모든 문이 열려 있어요", "check"); }  // 주소 뒤에 ?unlock → 모든 문이 열려요
+      if (TEST_MODE) { AREAS.forEach((a) => (done[a] = true)); openGates(false); toast("시험 모드: 모든 문이 열려 있어요 · Ctrl(또는 Shift)을 누르고 걸으면 빨라요", "check"); }  // 주소 뒤에 ?unlock → 모든 문이 열려요
     }
     player.key = charKey;
     if (!mini) {  // 미니맵: 맵 큰 그림을 작게 줄여서 한 번만 만들어 둬요

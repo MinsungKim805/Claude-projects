@@ -163,6 +163,7 @@ function keyId(e) {
 addEventListener("keydown", (e) => {
   const id = keyId(e);
   if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(id)) e.preventDefault();  // 페이지가 스크롤되지 않게
+  if ((e.ctrlKey || e.metaKey) && ["KeyA", "KeyS", "KeyD", "KeyE"].includes(id)) e.preventDefault();  // Ctrl+S(저장)·Ctrl+D(북마크) 같은 브라우저 단축키 막기 (Ctrl+W 는 못 막아요)
   if (!e.repeat) pressed[id] = true;
   keys[id] = true;
   keyEvents++;
