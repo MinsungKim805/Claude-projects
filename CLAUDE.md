@@ -110,7 +110,8 @@
 
 ### 참고 이미지 위치
 - `tools/reference/places/` — 게임에 쓰는 장소 사진(cafeteria, gym, library②, classroom②, corr1).
-- `tools/reference/places_alt/` — 안 쓰는 대안(교실①, 도서관①, 복도②) + 급식실 식탁 배치 스케치.
+- `tools/reference/places_alt/` — 안 쓰는 대안(교실①, 도서관①, 복도②, 예전 급식실 사진 `cafeteria_old`) + 급식실 식탁 배치 스케치.
+  (급식실 사진은 사용자가 준 픽셀아트 급식실 그림으로 교체됨)
 - `tools/reference/characters/` — 동훈, 민성(안경), 성민(모자).
 - `tools/reference/style/zep_style.webp` — 목표 그림체(ZEP).
 - `tools/reference/title_ref.webp` — 타이틀 학교 외관.
