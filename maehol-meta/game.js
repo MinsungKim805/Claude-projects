@@ -306,11 +306,11 @@ scenes.select = {
     noStroke();
     for (const i of times(46)) { fill(255, 255, 255, 80 + 120 * Math.abs(Math.sin(clock * 1.4 + i))); rect((i * 197) % W, (i * 83) % 420, 3, 3); }
     txt("캐릭터를 골라 주세요", W / 2, 40, 40, { align: CENTER, bold: true, color: "#ffe27a", outline: "#2a1a50", outlineW: 6 });
-    txt(tmFaceUrl() ? "카메라에 얼굴을 보여 주면 내 캐릭터가 자동으로 골라져요!" : "숫자 1 · 2 · 3 을 누르거나 카드를 클릭해서 골라요", W / 2, 96, 22, { align: CENTER, color: "#d8d4ff" });
+    txt(tmFaceUrl() ? "카메라에 얼굴을 보여 주면 내 캐릭터가 자동으로 골라져요!" : "← → 로 고르고 Space 로 시작해요", W / 2, 96, 22, { align: CENTER, color: "#d8d4ff" });
     this.drawCamera();
     CHARS.forEach((c, i) => this.drawCard(c, i));
     if (button("이 캐릭터로 시작하기", W / 2 + 70 - 190, 556, 380, 70, { size: 26 })) this.confirm();
-    txt("Space / Enter 로도 시작해요", W / 2 + 70, 640, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
+    txt("← → 로 고르고 Space 로 시작해요", W / 2 + 70, 640, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
     if (button("← 처음 화면", 30, 650, 190, 46, { size: 20, ...GRAY })) goTo("title");
     if (button("설정", 1110, 650, 80, 46, { size: 20, ...GRAY })) showSettings(false);
   },
@@ -366,7 +366,7 @@ const shuffled = (q) => {   // 보기를 섞고 정답 번호도 맞춰 바꿔�
   const idx = q.choices.map((_, i) => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   return { ...q, choices: idx.map((i) => q.choices[i]), answer: idx.indexOf(q.answer) };
 };
-const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, picked: -1, results: [], t: 0, qs: QUIZ.map(shuffled) });   // 퀴즈를 시작할 때마다 정답 위치가 달라져요
+const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, rsel: 1, picked: -1, results: [], t: 0, qs: QUIZ.map(shuffled) });   // 퀴즈를 시작할 때마다 정답 위치가 달라져요
 const allDone = () => AREAS.every((a) => done[a]);  // 4곳 소개를 모두 끝냈는지
 // NPC 머리 위에 어떤 말풍선을 보일지 (없으면 null)
 function npcIcon(n) {
@@ -379,7 +379,7 @@ scenes.game = {
     if (arg?.fresh) {  // 새 게임: 진행 상황을 모두 처음으로
       done = {}; seen = {}; quizDone = false; mode = "explore"; dlg = quiz = hintGate = zone = photo = null; cooldown = {}; toasts = [];
       resetWorld();
-      toast("W A S D 로 걸어 다녀요!", "star");
+      toast("방향키로 걸어 다녀요!", "star");
       if (testMode()) { AREAS.forEach((a) => (done[a] = true)); openGates(false); toast("시험 모드: 모든 문이 열려 있어요 · Shift 를 누르고 걸으면 빨라요", "check"); }  // 주소 뒤에 ?unlock → 모든 문이 열려요
     }
     player.key = charKey;
@@ -460,7 +460,7 @@ scenes.game = {
     const ok = allDone();
     if (button(ok ? "퀴즈 시작하기!" : "소개를 더 들어야 해요", W / 2 - 180, 570, 360, 70, { size: 28, ...(ok ? {} : GRAY) })) this.startQuiz();
     if (button("일어나기", W / 2 + 200, 584, 150, 44, { size: 20, ...BLUE })) this.stand();
-    txt(ok ? "Space · Enter: 시작     Esc · ↓: 일어나기" : "Esc · ↓: 일어나기", W / 2, 654, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });
+    txt(ok ? "Space: 퀴즈 시작     ↓: 일어나기" : "↓: 일어나기", W / 2, 654, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });
   },
   say(npc, lines, onDone) {  // 대화창 열기. lines = 대사 목록, onDone = 끝난 뒤 할 일
     mode = "dialogue"; dlg = { npc, lines, idx: 0, shown: 0, done: false, onDone }; sfx("click");
@@ -551,6 +551,16 @@ scenes.game = {
       if (navKey()) { const n = quiz.qs[quiz.i].choices.length; quiz.sel = (quiz.sel + navKey() + n) % n; sfx("click"); }  // ↑ ↓ 키
       if (action()) this.pick(quiz.sel);  // Space 로 확정
     } else if (quiz.state === "feedback" && quiz.t > 0.3 && (action() || click)) { click = null; this.next(); }
+    else if (quiz.state === "result") {  // 결과 화면: ← → (↑ ↓)로 버튼 고르고 Space 로 누르기 — 메이키메이키(방향키 + Space)로도 끝까지 할 수 있게
+      const d = (was("ArrowRight") || was("ArrowDown") || was("KeyD") ? 1 : 0) - (was("ArrowLeft") || was("ArrowUp") || was("KeyA") ? 1 : 0);
+      if (d) { quiz.rsel = (quiz.rsel + d + 3) % 3; sfx("click"); }
+      if (action() && quiz.t > 0.4) this.resultAct(quiz.rsel);
+    }
+  },
+  resultAct(i) {  // 0 다시 풀기 · 1 계속 둘러보기 · 2 처음으로
+    if (i === 0) { quiz = newQuiz(); sfx("select"); }
+    else if (i === 1) this.closeQuiz();
+    else goTo("title");
   },
   closeQuiz() {  // 퀴즈를 닫으면 일어나서 반장이 마무리 인사를 해요
     this.stand(); quiz = null; cooldown.banjang = 1.5;
@@ -621,7 +631,7 @@ scenes.game = {
       txt(target.name, ex, ey + 30, 11, { align: CENTER, bold: true, color: "#ffe14a", outline: "rgba(0,0,0,0.85)", outlineW: 4 });
     }
     if (mode === "explore" && keyEvents === 0 && clock > 3) txt("키보드가 안 되면 화면을 한 번 클릭하세요  ·  마우스를 누르고 있으면 그쪽으로 걸어가요", W / 2, 690, 11, { align: CENTER, color: "#ffe27a", outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 키보드 입력이 없을 때 안내
-    else if (mode === "explore" && clock < 14) txt("WASD 이동  ·  Space 대화  ·  Esc 설정", W / 2, 690, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 처음 14초 동안 조작 힌트
+    else if (mode === "explore" && clock < 14) txt("방향키 이동  ·  Space 대화", W / 2, 690, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 처음 14초 동안 조작 힌트
     if (testMode() && mode === "explore") txt(fastWalk() ? "시험 모드  >> 빠르게 걷는 중" : "시험 모드  ·  Shift 를 누르고 걸으면 빨라요", 20, 690, 11, { color: "#9affc0", outline: "rgba(0,0,0,0.9)", outlineW: 4 });  // 시험 모드 표시
     if (walkHold && mouseIsPressed && mode === "explore") { push(); noFill(); stroke(255, 255, 255, 200); strokeWeight(3); circle(mouseX, mouseY, 28 + Math.sin(clock * 10) * 5); pop(); }  // 누르고 있는 곳 표시
     if (zoneT < 2.4 && mode === "explore") { push(); drawingContext.globalAlpha = Math.max(0, Math.min(1, zoneT / 0.3, (2.4 - zoneT) / 0.5)); txt(zname, W / 2, 170, 40, { align: CENTER, bold: true, outline: "#2a1a50", outlineW: 8 }); pop(); }  // 새 장소에 들어서면 큰 글씨로
@@ -649,12 +659,13 @@ scenes.game = {
       if (Q.state === "feedback" && i === q.answer) txt("정답!", x + w - 80, by + 32, 22, { align: RIGHT, valign: CENTER, bold: true, color: "#b8ffd0" });
       if (on) { cursor("pointer"); if (clicked(x + 50, by, w - 100, 62)) this.pick(i); }  // 클릭해서 고르기
     });
-    if (Q.state === "ask") txt("1~4 번호 · ↑↓ + Space · 클릭으로 골라요", x + w / 2, y + h - 34, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
+    if (Q.state === "ask") txt("↑ ↓ 로 고르고 Space 로 정해요", x + w / 2, y + h - 34, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
     else {  // 정답 확인 단계: 해설과 [다음 문제] 버튼
       const ok = Q.results[Q.results.length - 1], fy = y + h - 108;
       txt(ok ? "정답이에요!" : "아쉬워요! 다시 기억해 봐요", x + 50, fy, 30, { bold: true, color: ok ? "#8affb0" : "#ffb0b8" });
       wrapText(q.explain || "", w - 360, 22).slice(0, 2).forEach((l, i) => txt(l, x + 50, fy + 44 + i * 30, 22, { color: "#e8e4ff" }));
-      if (button(Q.i === QUIZ.length - 1 ? "결과 보기" : "다음 문제", x + w - 250, fy + 6, 200, 60, { size: 24 }) && Q.t > 0.3) this.next();
+      if (button(Q.i === QUIZ.length - 1 ? "결과 보기" : "다음 문제", x + w - 250, fy + 6, 200, 60, { size: 24, focus: true }) && Q.t > 0.3) this.next();
+      txt("Space", x + w - 150, fy + 76, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
     }
   },
   // 결과 화면: 점수, 별, 응원 문구, 버튼 3개
@@ -667,9 +678,8 @@ scenes.game = {
     txt(ratio >= 1 ? "만점이에요! 우리 학교 박사님이네요!" : ratio >= 0.6 ? "잘했어요! 우리 학교를 잘 알고 있어요." : "소개를 다시 한 번 들어 보고 도전해 봐요!", x + w / 2, y + 340, 30, { align: CENTER, bold: true });  // 응원 문구 (바꿔도 돼요)
     if (best != null) txt(`내 최고 점수  ${best} / ${QUIZ.length}`, x + w / 2, y + 400, 22, { align: CENTER, color: "#ffe27a" });
     const by = y + h - 130;
-    if (button("다시 풀기", x + 90, by, 270, 70, { size: 26 })) { quiz = newQuiz(); sfx("select"); }
-    if (button("계속 둘러보기", x + 395, by, 270, 70, { size: 26, ...BLUE })) this.closeQuiz();
-    if (button("처음으로", x + 700, by, 270, 70, { size: 26, ...PINK })) goTo("title");
+    [["다시 풀기", {}], ["계속 둘러보기", BLUE], ["처음으로", PINK]].forEach(([label, col], i) => { if (quiz && quiz.state === "result" && button(label, x + 90 + i * 305, by, 270, 70, { size: 26, ...col, focus: quiz.rsel === i })) this.resultAct(i); });
+    txt("← → 로 고르고 Space 로 눌러요", x + w / 2, by + 92, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
   },
 };
 

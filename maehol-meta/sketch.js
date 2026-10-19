@@ -263,11 +263,12 @@ function clicked(x, y, w, h) {
 const BLUE = { fill: "#9ad0ff", hoverFill: "#c6e6ff", border: "#1f4a7a", color: "#12304f" };
 const PINK = { fill: "#ff9aa8", hoverFill: "#ffc4cc", border: "#7a1f2f", color: "#4f1220" };
 const GRAY = { fill: "#c9c6ff", hoverFill: "#e4e2ff", border: "#3a3670", color: "#26225a" };
-function button(label, x, y, w, h, o = {}) {
-  const on = hover(x, y, w, h), lift = on ? -2 : 0;
+function button(label, x, y, w, h, o = {}) {  // o.focus = true 이면 키보드(방향키)로 골라진 버튼이라 테두리가 반짝여요
+  const on = hover(x, y, w, h), lit = on || o.focus, lift = lit ? -2 : 0;
   push();
   noStroke(); fill(0, 0, 0, 80); rect(x + 3, y + 5, w, h, 10);
-  fill(on ? o.hoverFill || "#ffe680" : o.fill || "#ffd34a"); stroke(o.border || "#7a4a10"); strokeWeight(4);
+  if (o.focus) { noFill(); stroke(255, 255, 255, 150 + 105 * Math.sin(clock * 8)); strokeWeight(4); rect(x - 7, y - 7 + lift, w + 14, h + 14, 14); }
+  fill(lit ? o.hoverFill || "#ffe680" : o.fill || "#ffd34a"); stroke(o.border || "#7a4a10"); strokeWeight(4);
   rect(x, y + lift, w, h, 10);
   pop();
   txt(label, x + w / 2, y + h / 2 + lift + 1, o.size || 22, { align: CENTER, valign: CENTER, bold: true, color: o.color || "#5a2a08" });
@@ -335,7 +336,7 @@ function drawSettings() {
   const [x, y, w, h] = [240, 70, 800, 580];
   panel(x, y, w, h, { fill: "rgba(24,26,58,0.98)", border: "#ffe27a", r: 16 });
   txt("설정 / 조작 방법", x + w / 2, y + 22, 30, { align: CENTER, bold: true, color: "#ffe27a" });
-  const rows = [["이동", "W A S D  또는  방향키"], ["대화 / 선택", "Space · Enter · E  또는  마우스 클릭"], ["퀴즈 답 고르기", "1 2 3 4  또는  ↑ ↓ + Space  또는  클릭"], ["소리 켜기/끄기", "M"], ["이 창 열기/닫기", "Esc"]];
+  const rows = [["이동", "방향키  또는  W A S D"], ["대화 / 선택", "Space  (Enter · E · 마우스 클릭도 돼요)"], ["퀴즈 답 고르기", "↑ ↓ 로 고르고 Space  (1 2 3 4 · 클릭도 돼요)"], ["소리 켜기/끄기", "M"], ["이 창 열기/닫기", "Esc"]];
   rows.forEach(([a, b], i) => { txt(a, x + 50, y + 82 + i * 42, 22, { bold: true, color: "#9ad0ff" }); txt(b, x + 290, y + 82 + i * 42, 22); });
   txt("티처블 머신", x + 50, y + 312, 24, { bold: true, color: "#ffe27a" });
   [["얼굴 인식 (캐릭터 선택)", tmFaceUrl(), tm.face], ["동작 인식 (캐릭터 이동)", tmMotionUrl(), tm.motion]].forEach(([name, url, r], i) => {
