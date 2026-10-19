@@ -30,7 +30,7 @@ window.CONFIG = {
   //    티처블 머신에서 모델을 [내보내기] 한 뒤 나오는 링크를 따옴표 안에 붙여 넣으세요.
   //    예)  "https://teachablemachine.withgoogle.com/models/AbCdEfGhI/"
   // -------------------------------------------------------------------
-  TM_FACE_MODEL_URL: "",     // 얼굴 인식 모델 링크  → 캐릭터를 골라요
+  TM_FACE_MODEL_URL: "https://teachablemachine.withgoogle.com/models/IsJukufkt/",     // 얼굴 인식 모델 링크  → 캐릭터를 골라요 (클래스: 동훈 / 민성 / 성민 / no face)
   TM_MOTION_MODEL_URL: "",   // 동작 인식 모델 링크  → 캐릭터를 움직여요
   TM_MOTION_TYPE: "pose",    // 동작 모델 종류: "pose"(포즈 프로젝트) 또는 "image"(이미지 프로젝트)
 
@@ -47,7 +47,7 @@ window.CONFIG = {
     seongmin: ["성민"],
   },
   // 사람이 없을 때 쓰는 클래스 이름. 이 이름으로 인식되면 아무 캐릭터도 고르지 않아요.
-  FACE_NONE_CLASSES: ["No one", "Noone", "아무도 없음", "없음"],
+  FACE_NONE_CLASSES: ["no face", "No one", "Noone", "아무도 없음", "없음"],
   FACE_MIN_PROB: 0.8,        // 확률이 이 값(0.8 = 80%) 이상일 때만 "인식됐다"고 해요
   FACE_HOLD_MS: 1800,        // 같은 얼굴이 이 시간(1800 = 1.8초) 동안 보이면 자동으로 시작해요
 

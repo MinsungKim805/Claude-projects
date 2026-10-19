@@ -310,7 +310,7 @@ scenes.select = {
     keycap(String(i + 1), x + 14, ly + 14);
     if (on) txt("선택!", x + w - 16, ly + 18, 22, { align: RIGHT, bold: true, color: "#e0701a" });
     if (tmFaceUrl() && tm.face.key === c.key) {  // 얼굴이 이 캐릭터로 인식되면 시간 막대가 차올라요
-      txt("얼굴 인식!", x + w / 2, ly - 30, 22, { align: CENTER, bold: true, color: "#8affb0", outline: "#103a20", outlineW: 5 });
+      txt("얼굴 인식!", x + w / 2, ly + h + 12, 22, { align: CENTER, bold: true, color: "#8affb0", outline: "#103a20", outlineW: 5 });
       push(); noStroke(); fill("rgba(0,0,0,0.35)"); rect(x + 20, ly + h - 16, w - 40, 8, 4); fill("#4fd17a"); rect(x + 20, ly + h - 16, (w - 40) * constrain(holdMs / CONFIG.FACE_HOLD_MS, 0, 1), 8, 4); pop();
     }
     if (hov) { cursor("pointer"); if (clicked(x, y, w, h)) (sel === i ? this.confirm() : this.choose(i)); }  // 처음 클릭하면 고르기, 또 클릭하면 시작

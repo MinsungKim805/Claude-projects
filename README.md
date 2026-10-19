@@ -70,13 +70,13 @@ p5 웹 에디터는 한 번에 6개까지 올릴 수 있어서, `maehol-meta/` �
 
 | 칸 | 모델 | 하는 일 |
 |---|---|---|
-| `TM_FACE_MODEL_URL` | 이미지 프로젝트 | 얼굴 인식 → 캐릭터 선택 (클래스: `동훈` `민성` `성민` `No one`) |
+| `TM_FACE_MODEL_URL` | 이미지 프로젝트 | 얼굴 인식 → 캐릭터 선택 (클래스: `동훈` `민성` `성민` `no face`) — **연결됨**: `https://teachablemachine.withgoogle.com/models/IsJukufkt/` |
 | `TM_MOTION_MODEL_URL` | 포즈 / 이미지 프로젝트 | 동작 인식 → 캐릭터 이동 |
 
 1. 티처블 머신에서 모델을 **내보내기 ▸ 업로드(공유 가능한 링크)** 해서 링크를 복사해요.
 2. 링크를 따옴표 안에 붙여 넣어요. 예) `TM_FACE_MODEL_URL: "https://teachablemachine.withgoogle.com/models/AbCdEfGhI/"`
 3. 클래스 이름이 다르면 `FACE_CLASSES`, `MOTION_CLASSES` 를 고쳐요.
-4. 얼굴 클래스 이름이 **`No one`** (사람이 없을 때)이면 아무 캐릭터도 고르지 않고 기다려요.
+4. 얼굴 클래스 이름이 **`no face`** / `No one` (사람이 없을 때)이면 아무 캐릭터도 고르지 않고 기다려요. (`FACE_NONE_CLASSES` 에 적힌 이름)
 5. 카메라 권한을 '허용'하면 돼요. 같은 얼굴이 1.8초 동안 보이면 자동으로 시작해요.
 
 > 개발자 도구(F12) 콘솔에서 `debugFace("성민")`, `debugMotion("오른쪽")` 을 입력하면 카메라 없이 인식 결과를 흉내 낼 수 있어요.

@@ -16,7 +16,7 @@
 | `maehol-meta/index.html` | 첫 줄 `<!-- noprotect -->`, p5 1.9.4(cdnjs), `#game` div, 스크립트 순서 `content.js` → `sketch.js` → `game.js`. **data.js 태그는 없음**(sketch.js가 직접 불러옴) | O |
 | `maehol-meta/sketch.js` (~32KB) | 코드 ①: 파일 불러오기(대체 경로 포함)·입력/소리·UI 도구·부팅 화면·setup/draw | O |
 | `maehol-meta/game.js` (~48KB) | 코드 ②: 월드·Teachable Machine·타이틀/선택/게임 장면. 마지막 줄 `window.MAEHOL_GAME = true;` | O |
-| `maehol-meta/content.js` | `CONFIG`(TM 링크 비어 있음), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(8문제) | O (선생님/학생이 고치는 파일) |
+| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨, 동작 TM 링크는 비어 있음), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(8문제) | O (선생님/학생이 고치는 파일) |
 | `maehol-meta/data.js` | 맵 데이터·글꼴 등 | X — 생성됨 |
 | `maehol-meta/art.png` | 그림 묶음(아틀라스+배경+타이틀+장소 사진) | X — 생성됨 |
 | `tools/make_assets.py` | art.png·data.js·zip 전부 다시 만들기 + 검사(`!!` 경고 출력) | |
@@ -124,4 +124,8 @@
 
 ## 9. 열린 항목
 - 사용자 에디터에서 S3 자산 로드 실패의 근본 원인은 미확정(대체 로더로 우회 중).
-- `CONFIG`의 Teachable Machine 모델 링크는 비어 있음(사용자가 직접 학습시켜 넣어야 함).
+- 얼굴 인식 TM 모델: `https://teachablemachine.withgoogle.com/models/IsJukufkt/` (이미지 프로젝트, 클래스 `동훈`·`민성`·`성민`·`no face`, 224px).
+  테스트 환경에서는 teachablemachine.withgoogle.com·jsDelivr가 막혀 있어서 모델은 `https://storage.googleapis.com/tm-model/IsJukufkt/` 에서 받고,
+  라이브러리는 scratchpad npm(tfjs 1.3.1, @teachablemachine/image 0.8.5)으로 Playwright route 해서 테스트함. 가짜 카메라는 getUserMedia를 canvas.captureStream으로 바꿔치기.
+  (참고 캐릭터 그림은 일러스트라 실제 얼굴 인식 정확도 테스트에는 못 씀 — 실제 얼굴은 사용자가 웹캠으로 확인)
+- 동작 인식 TM 링크(`TM_MOTION_MODEL_URL`)는 비어 있음.
