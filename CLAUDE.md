@@ -129,3 +129,5 @@
   라이브러리는 scratchpad npm(tfjs 1.3.1, @teachablemachine/image 0.8.5)으로 Playwright route 해서 테스트함. 가짜 카메라는 getUserMedia를 canvas.captureStream으로 바꿔치기.
   (참고 캐릭터 그림은 일러스트라 실제 얼굴 인식 정확도 테스트에는 못 씀 — 실제 얼굴은 사용자가 웹캠으로 확인)
 - 동작 인식 TM 링크(`TM_MOTION_MODEL_URL`)는 비어 있음.
+- 공개 주소: **GitHub Pages `https://minsungkim805.github.io/Claude-projects/maehol-meta/`** — 현재 `claude/main` 브랜치에서 배포됨(푸시 후 약 1분, 브라우저 캐시 최대 10분).
+  TM 라이브러리는 jsDelivr → unpkg 순서로 받고, 카메라/라이브러리 오류는 선택 화면 카메라 패널에 한국어로 표시됨.
