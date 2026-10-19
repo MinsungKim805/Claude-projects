@@ -165,13 +165,24 @@ const debugMotion = (label, prob = 0.95) => { tm.motion.status = "준비됨(테�
 
 // 필요한 라이브러리를 그때그때 불러와요
 const scriptCache = {};
-const loadScript = (src) => (scriptCache[src] ||= new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => { delete scriptCache[src]; fail(new Error("라이브러리를 불러오지 못했어요 (인터넷을 확인해 주세요)")); }; document.head.appendChild(s); }));
-// 티처블 머신 라이브러리 주소. 링크를 넣었을 때만 불러와요.
-const LIB = {
-  tf: "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js",
-  pose: "https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js",
-  image: "https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js",
-};
+const loadScript = (src) => (scriptCache[src] ||= new Promise((ok, fail) => {
+  const s = document.createElement("script"), no = () => { delete scriptCache[src]; fail(new Error("no")); };
+  const t = setTimeout(no, 20000);  // 20초 안에 안 오면 다음 주소로
+  s.src = src; s.onload = () => { clearTimeout(t); ok(); }; s.onerror = () => { clearTimeout(t); no(); };
+  document.head.appendChild(s);
+}));
+// 티처블 머신 라이브러리 주소. 링크를 넣었을 때만 불러와요. 첫 주소(jsDelivr)가 막히면 두 번째(unpkg)로 받아요.
+const LIB = Object.fromEntries([["tf", "@tensorflow/tfjs@1.3.1/dist/tf.min.js"], ["pose", "@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"], ["image", "@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"]]
+  .map(([k, path]) => [k, ["https://cdn.jsdelivr.net/npm/", "https://unpkg.com/"].map((cdn) => cdn + path)]));
+const loadLib = async (srcs) => { for (const src of srcs) { if (await loadScript(src).then(() => true, () => false)) return; } throw new Error("티처블 머신 프로그램을 인터넷에서 받지 못했어요. 학교 인터넷에서 cdn.jsdelivr.net / unpkg.com 이 막혀 있는지 확인해 주세요"); };
+// 카메라 오류를 알아듣기 쉬운 말로
+const camError = (e) => ({
+  NotAllowedError: "카메라 사용이 막혀 있어요. 주소창 왼쪽 아이콘을 눌러 카메라를 '허용'으로 바꾼 뒤 새로고침해 주세요",
+  SecurityError: "카메라 사용이 막혀 있어요. 주소창 왼쪽 아이콘을 눌러 카메라를 '허용'으로 바꾼 뒤 새로고침해 주세요",
+  NotFoundError: "카메라를 찾지 못했어요. 카메라가 연결돼 있는지 확인해 주세요",
+  NotReadableError: "다른 프로그램(줌, 티처블 머신 창, 다른 브라우저 등)이 카메라를 쓰고 있어요. 그 창을 닫고 새로고침해 주세요",
+  AbortError: "카메라를 켜지 못했어요. 다른 프로그램이 카메라를 쓰고 있지 않은지 확인하고 새로고침해 주세요",
+})[e?.name] || e?.message || String(e);
 const modelUrls = (base) => { base = base.replace(/[^/]*\.json$/i, ""); base += base.endsWith("/") ? "" : "/"; return [base + "model.json", base + "metadata.json"]; };
 
 async function startTeachable() {
@@ -188,14 +199,15 @@ async function startTeachable() {
     tm.canvas = Object.assign(document.createElement("canvas"), { width: 224, height: 224 });  // 모델에 넣을 224x224 그림
     tm.cameraOn = true;
     tm.error = null;
-  } catch (e) { tm.error = e.message; tm.running = false; return; }
+  } catch (e) { tm.error = camError(e); tm.running = false; return; }
   // 2) 링크가 있는 모델만 불러오기
   const poseMode = CONFIG.TM_MOTION_TYPE !== "image" && tmMotionUrl();
+  [["face", tmFaceUrl()], ["motion", tmMotionUrl()]].forEach(([k, url]) => url && (tm[k].status = "프로그램 받는 중..."));
   try {
-    await loadScript(LIB.tf);
-    if (poseMode) await loadScript(LIB.pose);
-    if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadScript(LIB.image);
-  } catch (e) { tm.error = e.message; tm.running = false; return; }
+    await loadLib(LIB.tf);
+    if (poseMode) await loadLib(LIB.pose);
+    if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadLib(LIB.image);
+  } catch (e) { stopTeachable(); tm.error = e.message; tm.face.status = tm.motion.status = "off"; return; }
   const load = async (key, url, lib) => { tm[key].status = "불러오는 중..."; try { tm[key].model = await lib.load(...modelUrls(url)); tm[key].status = "준비됨"; } catch (e) { tm[key].status = "오류: 모델을 불러오지 못했어요"; console.warn(e); } };
   await Promise.all([tmFaceUrl() && load("face", tmFaceUrl(), window.tmImage), tmMotionUrl() && load("motion", tmMotionUrl(), poseMode ? window.tmPose : window.tmImage)]);
   tick();
@@ -325,10 +337,10 @@ scenes.select = {
     }
     txt("얼굴 인식 카메라", x + w / 2, y + 16, 22, { align: CENTER, bold: true, color: "#ffe27a" });
     panel(x + 28, y + 54, 244, 244, { fill: "#0a0818", border: "#6a66c0", bw: 3, r: 8, shadow: false });
-    if (tm.cameraOn) drawingContext.drawImage(tm.canvas, x + 30, y + 56, 240, 240);
-    else txt(tm.error || "카메라를 켜는 중...", x + 40, y + 160, 11, { color: "#ffb0b0" });
+    if (tm.cameraOn && !tm.error) drawingContext.drawImage(tm.canvas, x + 30, y + 56, 240, 240);
+    else wrapText(tm.error || "카메라를 켜는 중...\n\n(카메라를 쓸지 물어보면 '허용'을 눌러 주세요)", 204, 11).forEach((l, i) => txt(l, x + 48, y + 80 + i * 20, 11, { color: "#ffb0b0" }));
     // 인식 결과 한 줄 (No one 이면 "얼굴이 보이지 않아요")
-    const [label, color] = f.status.startsWith("오류") ? [f.status, "#ff9a9a"] : !f.model && !f.label ? [f.status === "off" ? "얼굴을 비춰 주세요" : f.status, "#d8d4ff"]
+    const [label, color] = tm.error ? ["얼굴 인식을 못 켰어요", "#ff9a9a"] : f.status.startsWith("오류") ? [f.status, "#ff9a9a"] : !f.model && !f.label ? [f.status === "off" ? "얼굴을 비춰 주세요" : f.status, "#d8d4ff"]
       : f.none ? ["얼굴이 보이지 않아요 (No one)", "#ffd27a"] : f.key ? [`${charName(f.key)}  ${Math.round(f.prob * 100)}%`, "#8affb0"] : [`${f.label}?  ${Math.round(f.prob * 100)}%`, "#ffe27a"];
     txt(label, x + w / 2, y + 314, 22, { align: CENTER, bold: true, color });
   },
