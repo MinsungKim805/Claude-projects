@@ -288,12 +288,13 @@ scenes.select = {
     if (was("Escape")) return goTo("title");
     if (action()) return this.confirm();
     const f = tm.face;  // ---- 얼굴 인식으로 고르기 ----
-    if (tmFaceUrl() && f.key) {  // 동훈/민성/성민 중 하나로 확실히 인식됨
+    if (tmFaceUrl() && f.key) {  // 동훈/민성/성민 중 하나가 FACE_MIN_PROB(80%) 이상 → 게이지가 차올라요
       this.choose(CHARS.findIndex((c) => c.key === f.key));
-      holdMs = f.key === lastFace ? holdMs + dt * 1000 : 0;  // 같은 얼굴이면 시간이 쌓여요
+      if (f.key !== lastFace) holdMs = 0;  // 다른 얼굴로 바뀌면 처음부터
+      holdMs += dt * 1000;
       lastFace = f.key;
-      if (holdMs >= CONFIG.FACE_HOLD_MS) this.confirm();  // 충분히 유지되면 자동 시작!
-    } else { holdMs = 0; lastFace = null; }  // key 가 비면 No one 이거나 확률이 낮은 경우
+      if (holdMs >= CONFIG.FACE_HOLD_MS) this.confirm();  // 게이지가 가득 차면 자동 시작!
+    } else holdMs = Math.max(0, holdMs - dt * 500);  // 80% 아래로 잠깐 흔들리면 게이지가 천천히 줄어요 (바로 0이 되지 않게)
   },
   draw() {
     const g = drawingContext.createLinearGradient(0, 0, 0, H);  // 배경: 위에서 아래로 어두워지는 보라색 + 반짝이는 별
@@ -321,9 +322,9 @@ scenes.select = {
     txt(c.desc, x + w / 2, ly + 330, 11, { align: CENTER, color: "#6a5ea0" });
     keycap(String(i + 1), x + 14, ly + 14);
     if (on) txt("선택!", x + w - 16, ly + 18, 22, { align: RIGHT, bold: true, color: "#e0701a" });
-    if (tmFaceUrl() && tm.face.key === c.key) {  // 얼굴이 이 캐릭터로 인식되면 시간 막대가 차올라요
-      txt("얼굴 인식!", x + w / 2, ly + h + 12, 22, { align: CENTER, bold: true, color: "#8affb0", outline: "#103a20", outlineW: 5 });
-      push(); noStroke(); fill("rgba(0,0,0,0.35)"); rect(x + 20, ly + h - 16, w - 40, 8, 4); fill("#4fd17a"); rect(x + 20, ly + h - 16, (w - 40) * constrain(holdMs / CONFIG.FACE_HOLD_MS, 0, 1), 8, 4); pop();
+    if (tmFaceUrl() && tm.face.key === c.key) txt("얼굴 인식!", x + w / 2, ly + h + 12, 22, { align: CENTER, bold: true, color: "#8affb0", outline: "#103a20", outlineW: 5 });
+    if (tmFaceUrl() && lastFace === c.key && holdMs > 0) {  // 80% 이상으로 인식되는 동안 게이지가 차올라요
+      push(); noStroke(); fill("rgba(0,0,0,0.35)"); rect(x + 20, ly + h - 16, w - 40, 9, 4); fill(tm.face.key === c.key ? "#4fd17a" : "#b8c890"); rect(x + 20, ly + h - 16, (w - 40) * constrain(holdMs / CONFIG.FACE_HOLD_MS, 0, 1), 9, 4); pop();
     }
     if (hov) { cursor("pointer"); if (clicked(x, y, w, h)) (sel === i ? this.confirm() : this.choose(i)); }  // 처음 클릭하면 고르기, 또 클릭하면 시작
   },
