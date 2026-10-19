@@ -72,7 +72,7 @@
 - 테스트할 때 사진 연출이 끼어들지 않게 `seen`을 미리 채워 둘 것.
 - 시험 모드: URL에 `?unlock` → 새 게임 시작 시 모든 소개 완료 처리 + 문 전부 열림 + 토스트.
   `content.js` 의 `CONFIG.TEST_MODE: true` 로도 켬(p5 에디터는 주소에 ?unlock 못 붙임). 판정은 game.js `testMode()`, 켜져 있으면 왼쪽 아래 초록 "시험 모드" 표시.
-  시험 모드에서 Ctrl 또는 Shift를 누르고 걸으면 3배 속도(`fastWalk()`). Ctrl+W는 탭을 닫으므로 Ctrl은 방향키와, WASD는 Shift와 쓰라고 안내함.
+  시험 모드에서 **Shift**를 누르고 걸으면 3배 속도(`fastWalk()`). Ctrl은 사용자 요청으로 뺌(Ctrl+W가 탭을 닫는 문제).
 
 ## 6. 현재 게임 내용 (확정 사항)
 ### 맵 (mapbuild.py, 타일 좌표 x,y,w,h)
