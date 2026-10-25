@@ -14,8 +14,8 @@
 | 파일 | 역할 | 손으로 고치나? |
 |---|---|---|
 | `maehol-meta/index.html` | 첫 줄 `<!-- noprotect -->`, p5 1.9.4(cdnjs), `#game` div, 스크립트 순서 `content.js` → `sketch.js` → `game.js`. **data.js 태그는 없음**(sketch.js가 직접 불러옴) | O |
-| `maehol-meta/sketch.js` (~32KB) | 코드 ①: 파일 불러오기(대체 경로 포함)·입력/소리·UI 도구·부팅 화면·setup/draw | O |
-| `maehol-meta/game.js` (~48KB) | 코드 ②: 월드·Teachable Machine·타이틀/선택/게임 장면. 마지막 줄 `window.MAEHOL_GAME = true;` | O |
+| `maehol-meta/sketch.js` (~38KB) | 코드 ①: 1.기본 값 2.파일 불러오기(대체 경로) 3.입력 4.효과음 5.화면 꾸미기 도구 6.불러오기 화면 7.setup/draw | O |
+| `maehol-meta/game.js` (~61KB) | 코드 ②: 8.월드 9.티처블 머신 10.시작·캐릭터 선택 11.게임 화면. 마지막 줄 `window.MAEHOL_GAME = true;` | O |
 | `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨, 동작 TM 링크는 비어 있음), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(8문제) | O (선생님/학생이 고치는 파일) |
 | `maehol-meta/data.js` | 맵 데이터·글꼴 등 | X — 생성됨 |
 | `maehol-meta/art.png` | 그림 묶음(아틀라스+배경+타이틀+장소 사진) | X — 생성됨 |
@@ -27,6 +27,7 @@
 | `README.md` | 사용 설명(6개 파일, 사진 연출, 보기 섞기, 앉아서 퀴즈, 80KB 주의, 대체 로더, SHA) | |
 
 `sketch.js`와 `game.js`는 클래식 스크립트라 전역 `let/const`를 공유해요(나눠도 서로의 변수를 그냥 씀).
+**코드 스타일(사용자 요청 "알아보기 쉽게")**: 한 줄에 명령 하나, 겹친 삼항 대신 이름 붙은 작은 함수, 파일 맨 위 목차, 함수마다 한 줄 한국어 설명. 새 코드도 이 스타일로.
 
 ## 3. p5 웹 에디터 제약 (소스로 확인한 사실 — 반드시 지킬 것)
 - **텍스트 파일이 80,000바이트 이상이면 S3로 올라감** → 편집 불가, URL로만 존재, 안의 문자열 치환도 안 됨.
