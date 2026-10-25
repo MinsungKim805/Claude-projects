@@ -132,7 +132,7 @@ function drawWorld(hintGate) {
 //     content.js 의 링크가 비어 있으면 카메라도 모델도 켜지 않아요.
 //     흐름: 카메라 켜기 → 0.07초마다 그림을 모델에 넣기 → 결과(클래스, 확률) → 캐릭터/방향
 const tm = {
-  running: false, cameraOn: false, error: null, video: null, canvas: null,
+  running: false, gen: 0, cameraOn: false, error: null, video: null, canvas: null,  // gen: 켤 때마다 바뀌는 번호 (껐다 켜면 예전 작업은 멈춰요)
   face: { status: "off", model: null, label: "", prob: 0, probs: [], key: null, none: false },  // key = 인식된 캐릭터, none = "No one"
   motion: { status: "off", model: null, label: "", dir: null },
 };
@@ -191,18 +191,21 @@ const modelUrls = (base) => { base = base.replace(/[^/]*\.json$/i, ""); base += 
 async function startTeachable() {
   if (tm.running || !tmWanted()) return;
   tm.running = true;
+  const gen = ++tm.gen, stale = () => gen !== tm.gen;  // 기다리는 동안 꺼졌으면(화면 이동) 여기서 멈춰요
   try {  // 1) 카메라 켜기 (https 또는 localhost 에서만 돼요)
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("이 브라우저에서는 카메라를 쓸 수 없어요 (https 또는 localhost 에서 열어 주세요)");
     const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: "user" }, audio: false });
+    if (stale()) return stream.getTracks().forEach((t) => t.stop());
     tm.video = Object.assign(document.createElement("video"), { srcObject: stream, muted: true, autoplay: true });
     tm.video.style.cssText = "position:fixed;left:-9999px;width:2px;height:2px;opacity:0";
     tm.video.setAttribute("playsinline", "");
     document.body.appendChild(tm.video);
     await tm.video.play();
+    if (stale()) return;
     tm.canvas = Object.assign(document.createElement("canvas"), { width: 224, height: 224 });  // 모델에 넣을 224x224 그림
     tm.cameraOn = true;
     tm.error = null;
-  } catch (e) { tm.error = camError(e); tm.running = false; return; }
+  } catch (e) { if (!stale()) { tm.error = camError(e); tm.running = false; } return; }
   // 2) 링크가 있는 모델만 불러오기
   const poseMode = CONFIG.TM_MOTION_TYPE !== "image" && tmMotionUrl();
   [["face", tmFaceUrl()], ["motion", tmMotionUrl()]].forEach(([k, url]) => url && (tm[k].status = "프로그램 받는 중..."));
@@ -210,14 +213,16 @@ async function startTeachable() {
     await loadLib(LIB.tf);
     if (poseMode) await loadLib(LIB.pose);
     if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadLib(LIB.image);
-  } catch (e) { stopTeachable(); tm.error = e.message; tm.face.status = tm.motion.status = "off"; return; }
-  const load = async (key, url, lib) => { tm[key].status = "불러오는 중..."; try { tm[key].model = await lib.load(...modelUrls(url)); tm[key].status = "준비됨"; } catch (e) { tm[key].status = "오류: 모델을 불러오지 못했어요"; console.warn(e); } };
+  } catch (e) { if (!stale()) { stopTeachable(); tm.error = e.message; tm.face.status = tm.motion.status = "off"; } return; }
+  if (stale()) return;
+  // 모델 불러오기 (한 번 받은 모델은 다시 받지 않아요)
+  const load = async (key, url, lib) => { if (tm[key].model) return void (tm[key].status = "준비됨"); tm[key].status = "불러오는 중..."; try { tm[key].model = await lib.load(...modelUrls(url)); tm[key].status = "준비됨"; } catch (e) { tm[key].status = "오류: 모델을 불러오지 못했어요"; console.warn(e); } };
   await Promise.all([tmFaceUrl() && load("face", tmFaceUrl(), window.tmImage), tmMotionUrl() && load("motion", tmMotionUrl(), poseMode ? window.tmPose : window.tmImage)]);
-  tick();
+  if (!stale()) tick(gen);
 }
 // 0.07초마다: 카메라 그림을 만들어 모델에 넣고 결과를 받아요
-async function tick() {
-  if (!tm.running) return;
+async function tick(gen) {
+  if (!tm.running || gen !== tm.gen) return;
   try {
     const v = tm.video;
     if (v.readyState >= 2 && v.videoWidth) {
@@ -226,20 +231,21 @@ async function tick() {
       c.drawImage(v, (v.videoWidth - s) / 2, (v.videoHeight - s) / 2, s, s, 0, 0, 224, 224);  // 가운데 정사각형만 잘라요 (티처블 머신 웹캠과 같아요)
       c.restore();
       const best = (preds) => preds.reduce((a, b) => (b.probability > a.probability ? b : a));
-      if (tm.face.model) { const p = await tm.face.model.predict(tm.canvas), b = best(p); readFace(b.className, b.probability, p.map((q) => ({ name: q.className, p: q.probability }))); }
+      if (tm.face.model && scene === "select") { const p = await tm.face.model.predict(tm.canvas), b = best(p); if (gen === tm.gen) readFace(b.className, b.probability, p.map((q) => ({ name: q.className, p: q.probability }))); }
       if (tm.motion.model) {
         const m = tm.motion.model, p = CONFIG.TM_MOTION_TYPE === "image" ? await m.predict(tm.canvas) : await m.predict((await m.estimatePose(tm.canvas)).posenetOutput), b = best(p);  // 포즈 모델은 몸의 관절을 먼저 찾아요
-        readMotion(b.className, b.probability);
+        if (gen === tm.gen) readMotion(b.className, b.probability);  // 기다리는 사이에 꺼졌으면 결과를 버려요
       }
     }
   } catch (e) { console.warn("티처블 머신 오류", e); }
-  setTimeout(tick, 70);
+  setTimeout(() => tick(gen), 70);
 }
 function stopTeachable() {
-  tm.running = tm.cameraOn = false;
+  tm.gen++; tm.running = tm.cameraOn = false;
   tm.video?.srcObject?.getTracks().forEach((t) => t.stop());
   tm.video?.remove();
-  motion.dir = null;
+  Object.assign(tm.face, { label: "", prob: 0, probs: [], key: null, none: false });  // 예전 인식 결과가 남아서 다음에 저절로 골라지지 않게
+  tm.motion.dir = motion.dir = null;
 }
 
 
@@ -261,7 +267,7 @@ scenes.title = {
       if (overGear) { stroke(255); rect(GEAR_BTN[0] - 2, GEAR_BTN[1] - 2, GEAR_BTN[2] + 4, GEAR_BTN[3] + 4, 12); }
       pop();
       if (overStart || overGear) cursor("pointer");
-      txt("Enter 키 또는 [시작하기]", 20, 696, 11, { outline: "rgba(0,0,0,0.8)" });
+      txt("Space 키 또는 [시작하기]", 20, 696, 11, { outline: "rgba(0,0,0,0.8)" });
       const web = [...FILES, ART].filter((f) => loadState[f.name] === "인터넷").map((f) => f.name);  // 내 파일 대신 인터넷 파일을 쓰는 중이면 알려줘요
       if (web.length) txt(`내 파일 대신 인터넷(GitHub)의 ${web.join(", ")} 로 실행 중이에요`, 20, 676, 11, { color: "#ffe27a", outline: "rgba(0,0,0,0.8)" });
       if (best != null) { panel(24, 24, 250, 44, { fill: "rgba(20,22,50,0.8)", border: "#ffe27a", shadow: false }); txt(`최고 퀴즈 점수  ${best} / ${QUIZ.length}`, 149, 46, 16, { align: CENTER, valign: CENTER, bold: true, color: "#ffe27a" }); }
@@ -279,7 +285,7 @@ scenes.title = {
 let sel = 0, holdMs = 0, lastFace = null;  // 고른 카드, 같은 얼굴 유지 시간(ms), 직전 얼굴
 const cardX = (i) => 360 + i * 274;  // i번째 카드의 x 위치 (카드 크기 252 x 360, y 150)
 scenes.select = {
-  enter() { sel = Math.max(0, CHARS.findIndex((c) => c.key === charKey)); holdMs = 0; lastFace = null; startTeachable(); },
+  enter() { sel = Math.max(0, CHARS.findIndex((c) => c.key === charKey)); holdMs = 0; lastFace = null; Object.assign(tm.face, { label: "", prob: 0, probs: [], key: null, none: false }); startTeachable(); },
   choose(i) { if (i !== sel) { sel = i; sfx("select"); } },
   confirm() { charKey = CHARS[sel].key; sfx("finish"); goTo("game", { fresh: true }); },
   update(dt) {
@@ -345,7 +351,7 @@ scenes.select = {
     else wrapText(tm.error || "카메라를 켜는 중...\n\n(카메라를 쓸지 물어보면 '허용'을 눌러 주세요)", 204, 11).forEach((l, i) => txt(l, x + 48, y + 80 + i * 20, 11, { color: "#ffb0b0" }));
     // 인식 결과 한 줄 (No one 이면 "얼굴이 보이지 않아요")
     const [label, color] = tm.error ? ["얼굴 인식을 못 켰어요", "#ff9a9a"] : f.status.startsWith("오류") ? [f.status, "#ff9a9a"] : !f.model && !f.label ? [f.status === "off" ? "얼굴을 비춰 주세요" : f.status, "#d8d4ff"]
-      : f.none ? ["얼굴이 보이지 않아요 (No one)", "#ffd27a"] : f.key ? [`${charName(f.key)}  ${Math.round(f.prob * 100)}%`, "#8affb0"] : [`${f.label}?  ${Math.round(f.prob * 100)}%`, "#ffe27a"];
+      : f.none ? ["얼굴이 보이지 않아요", "#ffd27a"] : f.key ? [`${charName(f.key)}  ${Math.round(f.prob * 100)}%`, "#8affb0"] : [`${f.label}?  ${Math.round(f.prob * 100)}%`, "#ffe27a"];
     txt(label, x + w / 2, y + 314, 22, { align: CENTER, bold: true, color });
   },
 };
@@ -387,7 +393,7 @@ scenes.game = {
       mini = Object.assign(document.createElement("canvas"), { width: 150, height: Math.round((150 * MAP.h) / MAP.w) });
       mini.getContext("2d").drawImage(IMG.bg, 0, 0, mini.width, mini.height);
     }
-    startTeachable();
+    if (tmMotionUrl()) startTeachable(); else if (tm.running) stopTeachable();  // 게임 중 카메라는 동작 인식이 있을 때만 (얼굴 인식은 캐릭터 고를 때만 써요)
   },
 
   // ---- 매 프레임 움직이기 ----
@@ -463,6 +469,8 @@ scenes.game = {
     txt(ok ? "Space: 퀴즈 시작     ↓: 일어나기" : "↓: 일어나기", W / 2, 654, 11, { align: CENTER, outline: "rgba(0,0,0,0.9)", outlineW: 4 });
   },
   say(npc, lines, onDone) {  // 대화창 열기. lines = 대사 목록, onDone = 끝난 뒤 할 일
+    lines = (Array.isArray(lines) ? lines : [lines]).filter((t) => typeof t === "string" && t);  // content.js 에서 대사를 비워도 멈추지 않게
+    if (!lines.length) return onDone?.();
     mode = "dialogue"; dlg = { npc, lines, idx: 0, shown: 0, done: false, onDone }; sfx("click");
   },
   finishArea(area) {  // 소개를 끝내면 완료로 기록하고 문을 열어요

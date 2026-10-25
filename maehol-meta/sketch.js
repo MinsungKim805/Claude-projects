@@ -126,7 +126,7 @@ function checkContent() {
   return bad;
 }
 
-// 마지막 방법: zip 을 푼 폴더의 content.js, data.js, art.png 를 직접 골라요
+// 마지막 방법: zip 을 푼 폴더의 content.js, game.js, data.js, art.png 를 직접 골라요
 function pickFiles() {
   const el = Object.assign(document.createElement("input"), { type: "file", multiple: true, accept: ".js,.png" });
   el.onchange = () => {
@@ -331,12 +331,12 @@ let settingsOpen = false, settingsInGame = false, settingsFrame = 0;
 const showSettings = (inGame) => { settingsOpen = true; settingsInGame = inGame; settingsFrame = frameCount; };
 function drawSettings() {
   if (!settingsOpen) return;
-  if (was("Escape") && frameCount !== settingsFrame) { settingsOpen = false; return; }  // Esc 로 닫기 (연 바로 그 프레임은 제외)
+  if ((was("Escape") || was("Space")) && frameCount !== settingsFrame) { settingsOpen = false; return; }  // Esc · Space 로 닫기 (연 바로 그 프레임은 제외)
   dim(0.6);
   const [x, y, w, h] = [240, 70, 800, 580];
   panel(x, y, w, h, { fill: "rgba(24,26,58,0.98)", border: "#ffe27a", r: 16 });
   txt("설정 / 조작 방법", x + w / 2, y + 22, 30, { align: CENTER, bold: true, color: "#ffe27a" });
-  const rows = [["이동", "방향키  또는  W A S D"], ["대화 / 선택", "Space  (Enter · E · 마우스 클릭도 돼요)"], ["퀴즈 답 고르기", "↑ ↓ 로 고르고 Space  (1 2 3 4 · 클릭도 돼요)"], ["소리 켜기/끄기", "M"], ["이 창 열기/닫기", "Esc"]];
+  const rows = [["이동", "방향키  또는  W A S D"], ["대화 / 선택", "Space  (Enter · E · 마우스 클릭도 돼요)"], ["퀴즈 답 고르기", "↑ ↓ 로 고르고 Space  (1 2 3 4 · 클릭도 돼요)"], ["소리 켜기/끄기", "M"], ["이 창 열기/닫기", "Esc  (닫기는 Space 도 돼요)"]];
   rows.forEach(([a, b], i) => { txt(a, x + 50, y + 82 + i * 42, 22, { bold: true, color: "#9ad0ff" }); txt(b, x + 290, y + 82 + i * 42, 22); });
   txt("티처블 머신", x + 50, y + 312, 24, { bold: true, color: "#ffe27a" });
   [["얼굴 인식 (캐릭터 선택)", tmFaceUrl(), tm.face], ["동작 인식 (캐릭터 이동)", tmMotionUrl(), tm.motion]].forEach(([name, url, r], i) => {
@@ -409,7 +409,7 @@ scenes.boot = {
       if (st === "없음") wrapText((tried[f.name] || []).join("  ·  "), w - 100, 13).slice(0, 3).forEach((l, j) => txt(l, x + 50, yy + 26 + j * 17, 13, { color: "#b9b5e6" }));  // 실패한 이유
     });
     ["이렇게 해 보세요", "1. 인터넷을 확인하고 [다시 시도]를 눌러요", "2. 학교·회사 인터넷은 github, amazonaws 주소를 막기도 해요. 집 인터넷이나 핫스팟으로 해 보세요",
-      "3. 안 되면 [내 컴퓨터에서 파일 고르기]로 zip 을 푼 폴더의 content.js, data.js, art.png 를 직접 골라요", "4. 위 빨간 글자(실패 이유)를 알려 주시면 원인을 찾을 수 있어요"].forEach((s, i) => txt(s, x + 50, y + 340 + i * 34, i ? 17 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
+      "3. 안 되면 [내 컴퓨터에서 파일 고르기]로 zip 을 푼 폴더의 content.js, game.js, data.js, art.png 를 직접 골라요", "4. 위 빨간 글자(실패 이유)를 알려 주시면 원인을 찾을 수 있어요"].forEach((s, i) => txt(s, x + 50, y + 340 + i * 34, i ? 17 : 22, { color: i ? "#d8d4ff" : "#ffe27a", bold: !i }));
     if (button("다시 시도", W / 2 - 330, y + h - 76, 250, 56, { size: 24 })) this.enter();
     if (button("내 컴퓨터에서 파일 고르기", W / 2 - 60, y + h - 76, 390, 56, { size: 24, ...BLUE })) pickFiles();
   },

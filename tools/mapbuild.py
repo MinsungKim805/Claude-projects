@@ -1,6 +1,6 @@
 """매홀중학교 큰 맵 빌더 (ZEP식 탑다운, 32px 칸, 알록달록 귀여운 도트).
 
-운동장 → 복도 → 급식실 ↓ 복도 ↓ 체육관 ← 복도 ← 도서관 ↓ 복도 ↓ 교실(퀴즈 존)
+운동장 → 복도 → 급식실 ↓ 복도 ↓ 체육관 ← 복도 ← 도서관 ↓ 복도 ↓ 교실(퀴즈)
 방에서 방으로 가는 통로(문)는 소개를 끝내야 열려요.
 
   build() -> dict(bg=Image, data=dict, sprites=dict, ...)
@@ -42,7 +42,7 @@ GATES = [
     ("C", "v", 34, 9, 6, ["cafeteria"], "급식실 소개를 끝내면 열려요"),
     ("E", "h", 58, 19, 8, ["gym"], "체육관 소개를 끝내면 열려요"),
     ("G", "h", 47, 49, 8, ["library"], "도서관 소개를 끝내면 열려요"),
-    ("H", "h", 47, 62, 8, ["playground", "cafeteria", "gym", "library"], "소개를 모두 끝내야 퀴즈 존에 들어가요"),
+    ("H", "h", 47, 62, 8, ["playground", "cafeteria", "gym", "library"], "소개를 모두 끝내야 교실에 들어갈 수 있어요"),
 ]
 
 
@@ -398,7 +398,7 @@ def rug(bg, tx, ty, w, h, base, edge, dot):
 
 
 def paint_markings(bg, d, b):
-    """바닥 표시(운동장 라인, 농구 코트, 퀴즈 존 매트, 복도 화살표)."""
+    """바닥 표시(운동장 라인, 농구 코트, 복도 화살표)."""
     white = c("#fffdf2")
     ov = Image.new("RGBA", bg.size, (0, 0, 0, 0))
     do = ImageDraw.Draw(ov)
