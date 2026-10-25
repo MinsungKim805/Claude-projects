@@ -74,7 +74,7 @@ try {
 //       3) 또 3초 뒤 jsDelivr      (cdn.jsdelivr.net)
 //     앞의 것이 실패하면 3초를 기다리지 않고 바로 다음 것을 시작해요.
 // =====================================================================
-const SHA = "be37b3f05fc5c3d94de109331d6f8a418709c146";  // 인터넷에 올려 둔 파일 버전(커밋 번호)
+const SHA = "087f6e2e224e62a6285e41ecfbf831e1bce15a1d";  // 인터넷에 올려 둔 파일 버전(커밋 번호)
 const ONLINE = [
   `https://raw.githubusercontent.com/MinsungKim805/Claude-projects/${SHA}/maehol-meta/`,
   `https://cdn.jsdelivr.net/gh/MinsungKim805/Claude-projects@${SHA}/maehol-meta/`,
