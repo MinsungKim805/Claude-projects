@@ -1131,7 +1131,7 @@ scenes.game = {
     if (next) return SCRIPT.objective[next];
     return quizDone ? SCRIPT.objective.done : SCRIPT.objective.quiz;
   },
-  // 위쪽 가운데: 진행 바 (1~5번 정거장, 끝낸 곳은 초록 체크)
+  // 위쪽 가운데: 진행 바 (1~5번 정거장, 끝낸 곳은 초록 체크, 아직 가 보지 않은 곳은 이름 대신 ???)
   hudProgress() {
     const rx = W / 2 - 350, ry = 16, rw = 540;
     const xs = STOPS.map((_, i) => rx + 50 + (i * (rw - 100)) / 4);
@@ -1152,7 +1152,8 @@ scenes.game = {
       pop();
       if (ok) drawingContext.drawImage(IMG.ui.check, xs[i] - 8, ry + 14, 16, 16);
       else txt(i + 1, xs[i], ry + 23, 11, { align: CENTER, valign: CENTER, bold: true, color: "#c9c6ff" });
-      txt(label, xs[i], ry + 40, 11, { align: CENTER, bold: here, color: here ? "#ffe27a" : "#d8d4ff" });
+      const known = seen[id] || ok;  // 한 번이라도 가 본 곳만 이름이 보여요
+      txt(known ? label : "???", xs[i], ry + 40, 11, { align: CENTER, bold: here, color: here ? "#ffe27a" : known ? "#d8d4ff" : "#8a86b8" });
     });
   },
   // 오른쪽 위: 미니맵 (흰 네모 = 지금 화면, 노란 점 = 나, 빨강/초록 점 = 안내 NPC, 주황 = 반장)
