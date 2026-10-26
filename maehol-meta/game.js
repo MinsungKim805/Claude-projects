@@ -1014,12 +1014,7 @@ scenes.game = {
     quiz.state = "result";
     quizDone = true;
     sfx("finish");
-    if (best == null || quiz.score > best) {  // 최고 점수 저장
-      best = quiz.score;
-      try {
-        localStorage.setItem("maehol_best", best);
-      } catch (e) {}
-    }
+    if (best == null || quiz.score > best) best = quiz.score;  // 최고 점수 (새로고침하면 사라져요)
   },
   quizUpdate(dt) {
     quiz.t += dt;

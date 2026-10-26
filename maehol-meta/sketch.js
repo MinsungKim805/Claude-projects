@@ -60,9 +60,9 @@ let clock = 0;             // 지금 화면이 켜진 뒤 흐른 시간(초)
 let charKey = "donghun";   // 내가 고른 캐릭터
 let done = {};             // 소개를 끝낸 구역  예) { playground: true }
 let quizDone = false;      // 퀴즈를 끝까지 풀었나
-let best = null;           // 최고 퀴즈 점수 (브라우저에 저장해 둬요)
+let best = null;           // 최고 퀴즈 점수 (저장하지 않아서 새로고침하면 처음부터예요)
 try {
-  best = parseInt(localStorage.getItem("maehol_best")) || null;
+  localStorage.removeItem("maehol_best");  // 예전 버전이 브라우저에 저장해 둔 점수 지우기
 } catch (e) {}
 
 
