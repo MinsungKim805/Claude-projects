@@ -140,10 +140,11 @@ def make_backgrounds(res):
     src = os.environ.get("TITLE_SRC") or os.path.join(ROOT, "tools", "reference", "title_ref.webp")
     if os.path.exists(src):
         im = Image.open(src).convert("RGB")
-        # 우하단 반짝이 워터마크를 주변 모래로 덮어요
+        # 오른쪽 아래(톱니바퀴 위) 반짝이 워터마크를 바로 왼쪽 모래로 덮어요
         w, h = im.size
-        box = (int(w * 0.885), int(h * 0.80), int(w * 0.955), int(h * 0.885))
-        patch = im.crop((box[0] - (box[2] - box[0]) - 40, box[1], box[0] - 40, box[3]))
+        box = (int(w * 0.8921), int(h * 0.8105), int(w * 0.9320), int(h * 0.8711))
+        bw = box[2] - box[0]
+        patch = im.crop((box[0] - bw - 3, box[1], box[0] - 3, box[3]))
         im.paste(patch, (box[0], box[1]))
         sc = 720 / h
         im = im.resize((round(w * sc), 720), Image.LANCZOS)

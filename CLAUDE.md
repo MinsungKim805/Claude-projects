@@ -117,7 +117,7 @@
   (급식실·체육관 사진은 사용자가 준 그림으로 교체됨. 예전 사진은 `cafeteria_old`·`gym_old`. 체육관 배치는 사진과 달리 예전 그대로 두기로 함)
 - `tools/reference/characters/` — 동훈, 민성(안경), 성민(모자).
 - `tools/reference/style/zep_style.webp` — 목표 그림체(ZEP).
-- `tools/reference/title_ref.webp` — 타이틀 학교 외관.
+- `tools/reference/title_ref.webp` — 시작 화면 그림 (사용자가 준 새 그림, 2752×1536. [시작하기]·톱니바퀴 위치가 START_BTN/GEAR_BTN 과 맞음. 오른쪽 아래 반짝이 워터마크는 make_assets.py 가 덮음). 예전 그림은 `places_alt/title_old.webp`.
 
 ## 8. 사용자 취향 / 소통 방식
 - **메이키메이키로 방향키 4개(↑↓←→) + 기능 키 하나(Space)만 씀.** 새 화면·버튼을 만들면 반드시 방향키 + Space 만으로 조작 가능해야 함
