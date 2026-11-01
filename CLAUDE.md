@@ -16,7 +16,7 @@
 | `maehol-meta/index.html` | 첫 줄 `<!-- noprotect -->`, p5 1.9.4(cdnjs), `#game` div, 스크립트 순서 `content.js` → `sketch.js` → `game.js`. **data.js 태그는 없음**(sketch.js가 직접 불러옴) | O |
 | `maehol-meta/sketch.js` (~38KB) | 코드 ①: 1.기본 값 2.파일 불러오기(대체 경로) 3.입력 4.효과음 5.화면 꾸미기 도구 6.불러오기 화면 7.setup/draw | O |
 | `maehol-meta/game.js` (~61KB) | 코드 ②: 8.월드 9.티처블 머신 10.시작·캐릭터 선택 11.게임 화면. 마지막 줄 `window.MAEHOL_GAME = true;` | O |
-| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨, 동작 TM 링크는 비어 있음), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(8문제) | O (선생님/학생이 고치는 파일) |
+| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨. 동작 인식은 사용자 요청으로 완전히 삭제), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(8문제) | O (선생님/학생이 고치는 파일) |
 | `maehol-meta/data.js` | 맵 데이터·글꼴 등 | X — 생성됨 |
 | `maehol-meta/art.png` | 그림 묶음(아틀라스+배경+타이틀+장소 사진) | X — 생성됨 |
 | `tools/make_assets.py` | art.png·data.js·zip 전부 다시 만들기 + 검사(`!!` 경고 출력) | |
@@ -134,6 +134,6 @@
   테스트 환경에서는 teachablemachine.withgoogle.com·jsDelivr가 막혀 있어서 모델은 `https://storage.googleapis.com/tm-model/IsJukufkt/` 에서 받고,
   라이브러리는 scratchpad npm(tfjs 1.3.1, @teachablemachine/image 0.8.5)으로 Playwright route 해서 테스트함. 가짜 카메라는 getUserMedia를 canvas.captureStream으로 바꿔치기.
   (참고 캐릭터 그림은 일러스트라 실제 얼굴 인식 정확도 테스트에는 못 씀 — 실제 얼굴은 사용자가 웹캠으로 확인)
-- 동작 인식 TM 링크(`TM_MOTION_MODEL_URL`)는 비어 있음.
+- 동작 인식(TM_MOTION_*, MOTION_*, readMotion, motion 입력)은 사용자 요청으로 **전부 삭제**함. 카메라는 캐릭터 선택 화면에서만 켬.
 - 공개 주소: **GitHub Pages `https://minsungkim805.github.io/Claude-projects/maehol-meta/`** — 현재 `claude/main` 브랜치에서 배포됨(푸시 후 약 1분, 브라우저 캐시 최대 10분).
   TM 라이브러리는 jsDelivr → unpkg 순서로 받고, 카메라/라이브러리 오류는 선택 화면 카메라 패널에 한국어로 표시됨.

@@ -278,7 +278,7 @@ function checkContent() {
     });
   }
 
-  for (const k of ["PLAYER_SPEED", "TEXT_SPEED", "FACE_MIN_PROB", "FACE_HOLD_MS", "MOTION_MIN_PROB"]) {
+  for (const k of ["PLAYER_SPEED", "TEXT_SPEED", "FACE_MIN_PROB", "FACE_HOLD_MS"]) {
     if (typeof C[k] !== "number") bad.push(`CONFIG.${k} : 숫자가 필요해요`);
   }
   return bad;
@@ -319,7 +319,6 @@ let keys = {};      // 누르고 있는 키
 let pressed = {};   // 이번 프레임에 막 눌린 키
 let click = null;   // 이번 프레임의 클릭 위치 {x, y}
 let keyEvents = 0;  // 키보드 입력이 한 번이라도 들어왔나 (안 들어오면 "화면을 클릭하세요" 안내)
-let motion = { dir: null, action: false, nav: 0 };  // 티처블 머신 동작 인식 결과 (game.js 가 채워요)
 
 const KEY_BY_NUMBER = { 87: "KeyW", 65: "KeyA", 83: "KeyS", 68: "KeyD", 69: "KeyE", 77: "KeyM", 32: "Space", 13: "Enter", 27: "Escape", 37: "ArrowLeft", 38: "ArrowUp", 39: "ArrowRight", 40: "ArrowDown" };
 const KEY_BY_JAMO = { ㅈ: "KeyW", ㅉ: "KeyW", ㅁ: "KeyA", ㄴ: "KeyS", ㅇ: "KeyD", ㄷ: "KeyE", ㄸ: "KeyE", ㅡ: "KeyM" };  // 한글 자판으로 눌러도 같은 키
@@ -355,9 +354,9 @@ function focusGame() {
 
 const down = (code) => keys[code];
 const was = (code) => pressed[code];
-const action = () => was("Space") || was("Enter") || was("KeyE") || motion.action;  // "확인" 키
+const action = () => was("Space") || was("Enter") || was("KeyE");  // "확인" 키
 
-// 이동 방향 {x, y} (-1 ~ 1). 키보드가 먼저, 안 누르면 마우스(누르고 있기), 그다음 동작 인식
+// 이동 방향 {x, y} (-1 ~ 1). 키보드가 먼저, 안 누르면 마우스(누르고 있기)
 let walkHold = false;  // 마우스(손가락)를 누른 채 걷는 중인가
 function moveVec() {
   const right = down("KeyD") || down("ArrowRight"), left = down("KeyA") || down("ArrowLeft");
@@ -371,11 +370,7 @@ function moveVec() {
     const dx = mouseX - p.x, dy = mouseY - p.y, len = Math.hypot(dx, dy);
     if (len > 24) return { x: dx / len, y: dy / len };
   }
-  if (motion.dir) {
-    x = { left: -1, right: 1 }[motion.dir] || 0;
-    y = { up: -1, down: 1 }[motion.dir] || 0;
-  }
-  return { x, y };
+  return { x: 0, y: 0 };
 }
 // 숫자 1~9 키 → 0~8 (안 눌렀으면 -1)
 const numberKey = () => times(9).find((i) => was("Digit" + (i + 1)) || was("Numpad" + (i + 1))) ?? -1;
@@ -383,7 +378,7 @@ const numberKey = () => times(9).find((i) => was("Digit" + (i + 1)) || was("Nump
 function navKey() {
   if (was("ArrowUp") || was("KeyW")) return -1;
   if (was("ArrowDown") || was("KeyS")) return 1;
-  return motion.nav;
+  return 0;
 }
 
 
@@ -626,7 +621,7 @@ function showSettings(inGame) {
 }
 // 티처블 머신 상태 한 줄: [글, 색]
 function tmStatusText(url, r) {
-  if (!url) return ["링크가 비어 있어요 (키보드/마우스 사용)", "#b8b8d8"];
+  if (!url) return ["링크가 비어 있어요 (키보드로 골라요)", "#b8b8d8"];
   if (tm.error) return ["카메라 오류: " + tm.error, "#ff9a9a"];
   if (r.status.startsWith("준비됨")) return ["연결됨", "#8affb0"];
   return [r.status === "off" ? "아직 시작하지 않았어요" : r.status, "#ffe27a"];
@@ -655,12 +650,9 @@ function drawSettings() {
   });
 
   txt("티처블 머신", x + 50, y + 312, 24, { bold: true, color: "#ffe27a" });
-  const tmRows = [["얼굴 인식 (캐릭터 선택)", tmFaceUrl(), tm.face], ["동작 인식 (캐릭터 이동)", tmMotionUrl(), tm.motion]];
-  tmRows.forEach(([name, url, r], i) => {
-    const [text, color] = tmStatusText(url, r);
-    txt(name, x + 50, y + 352 + i * 38, 22);
-    txt(text, x + 400, y + 352 + i * 38, 22, { color });
-  });
+  const [faceText, faceColor] = tmStatusText(tmFaceUrl(), tm.face);
+  txt("얼굴 인식 (캐릭터 선택)", x + 50, y + 352, 22);
+  txt(faceText, x + 400, y + 352, 22, { color: faceColor });
   txt("링크는 content.js 맨 위에 붙여 넣어요.", x + 50, y + 432, 11, { color: "rgba(255,255,255,0.65)" });
 
   const by = y + h - 84;
@@ -826,8 +818,6 @@ function draw() {
   // 4) 이번 프레임에만 쓰는 입력 지우기
   pressed = {};
   click = null;
-  motion.nav = 0;
-  motion.action = false;
 }
 
 // 마우스를 누르면 p5.js 가 불러줘요

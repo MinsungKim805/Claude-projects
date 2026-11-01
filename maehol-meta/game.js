@@ -6,7 +6,7 @@
 //
 //  이 파일의 차례 (1 ~ 7 번은 sketch.js 에 있어요)
 //    8.  월드          맵 · 충돌(벽) · 잠긴 문 · 카메라 · 맵 그리기
-//    9.  티처블 머신    얼굴 인식(캐릭터 고르기) · 동작 인식(걷기)
+//    9.  티처블 머신    얼굴 인식으로 캐릭터 고르기
 //    10. 시작 화면 · 캐릭터 선택 화면
 //    11. 게임 화면      돌아다니기 → NPC 소개 듣기 → 문 열기 → 교실 의자에 앉아 퀴즈
 //
@@ -256,8 +256,7 @@ function drawFootRing(cx, cy) {
 
 // =====================================================================
 //  9. 티처블 머신
-//     얼굴 인식: 동훈 / 민성 / 성민 / no face  →  캐릭터 고르기 (캐릭터 선택 화면에서만)
-//     동작 인식: 위 / 아래 / 왼쪽 / 오른쪽 / 확인  →  걷기
+//     얼굴 인식: 동훈 / 민성 / 성민 / no face  →  캐릭터 고르기 (캐릭터 선택 화면에서만 카메라를 켜요)
 //     content.js 의 링크가 비어 있으면 카메라도 모델도 켜지 않아요.
 //     흐름: 카메라 켜기 → 라이브러리 받기 → 모델 받기 → 0.07초마다 카메라 그림을 모델에 넣기 → 결과(클래스, 확률)
 // =====================================================================
@@ -269,11 +268,8 @@ const tm = {
   video: null,      // 카메라 영상 (화면에는 안 보이게 숨겨요)
   canvas: null,     // 모델에 넣을 224 x 224 그림
   face: { status: "off", model: null, label: "", prob: 0, probs: [], key: null, none: false },  // key = 인식된 캐릭터, none = 사람 없음
-  motion: { status: "off", model: null, label: "", dir: null },
 };
 const tmFaceUrl = () => (CONFIG.TM_FACE_MODEL_URL || "").trim();
-const tmMotionUrl = () => (CONFIG.TM_MOTION_MODEL_URL || "").trim();
-const tmWanted = () => tmFaceUrl() || tmMotionUrl();
 
 // 이름 비교: 대소문자·띄어쓰기를 무시해요 ("No one" = "noone")
 const simple = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "");
@@ -290,32 +286,10 @@ function readFace(label, prob, probs = []) {
   if (f.none || prob < CONFIG.FACE_MIN_PROB) return;  // 사람이 없거나 확률이 낮으면 아직 모르는 걸로
   f.key = Object.keys(CONFIG.FACE_CLASSES).find((k) => sameName(label, CONFIG.FACE_CLASSES[k])) || null;
 }
-// 동작: 클래스 이름 → 방향.   ("오른쪽", 0.95) → motion.dir = "right"
-let lastMotionAction = 0;
-function readMotion(label, prob) {
-  const m = tm.motion, M = CONFIG.MOTION_CLASSES, oldDir = m.dir;
-  m.label = label;
-  m.dir = null;
-  motion.action = false;
-  const sure = prob >= CONFIG.MOTION_MIN_PROB && !sameName(label, CONFIG.MOTION_IDLE_CLASSES);
-  if (sure) {
-    m.dir = ["up", "down", "left", "right"].find((d) => sameName(label, M[d])) || null;
-    if (sameName(label, M.action) && performance.now() - lastMotionAction > 900) {  // "확인" 동작은 0.9초에 한 번만
-      motion.action = true;
-      lastMotionAction = performance.now();
-    }
-  }
-  if (m.dir !== oldDir) motion.nav = m.dir === "up" ? -1 : m.dir === "down" ? 1 : 0;  // 메뉴 위/아래
-  motion.dir = m.dir;
-}
-// 시험용 (F12 콘솔에서): debugFace("민성", 0.95) / debugFace("no face") / debugMotion("오른쪽")
+// 시험용 (F12 콘솔에서): debugFace("민성", 0.95) / debugFace("no face")
 const debugFace = (label, prob = 0.95) => {
   tm.face.status = "준비됨(테스트)";
   readFace(label, prob, [{ name: label, p: prob }]);
-};
-const debugMotion = (label, prob = 0.95) => {
-  tm.motion.status = "준비됨(테스트)";
-  readMotion(label, prob);
 };
 
 // ---- 라이브러리 받기: 첫 주소(jsDelivr)가 막히면 두 번째(unpkg)로 받아요. 20초 넘게 안 오면 다음 주소로.
@@ -344,7 +318,6 @@ function loadScript(src) {
 const CDNS = ["https://cdn.jsdelivr.net/npm/", "https://unpkg.com/"];
 const LIB = {
   tf: CDNS.map((cdn) => cdn + "@tensorflow/tfjs@1.3.1/dist/tf.min.js"),
-  pose: CDNS.map((cdn) => cdn + "@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"),
   image: CDNS.map((cdn) => cdn + "@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"),
 };
 async function loadLib(srcs) {
@@ -372,7 +345,7 @@ function modelUrls(base) {
 
 // 티처블 머신 켜기
 async function startTeachable() {
-  if (tm.running || !tmWanted()) return;
+  if (tm.running || !tmFaceUrl()) return;
   tm.running = true;
   const gen = ++tm.gen;
   const stale = () => gen !== tm.gen;  // 기다리는 동안 꺼졌나 (다른 화면으로 갔을 때)
@@ -399,41 +372,34 @@ async function startTeachable() {
     return;
   }
 
-  // 2) 라이브러리 받기 (링크가 있는 모델에 필요한 것만)
-  const poseMode = CONFIG.TM_MOTION_TYPE !== "image" && tmMotionUrl();
-  if (tmFaceUrl()) tm.face.status = "프로그램 받는 중...";
-  if (tmMotionUrl()) tm.motion.status = "프로그램 받는 중...";
+  // 2) 라이브러리 받기
+  const f = tm.face;
+  f.status = "프로그램 받는 중...";
   try {
     await loadLib(LIB.tf);
-    if (poseMode) await loadLib(LIB.pose);
-    if (tmFaceUrl() || (tmMotionUrl() && !poseMode)) await loadLib(LIB.image);
+    await loadLib(LIB.image);
   } catch (e) {
     if (!stale()) {
       stopTeachable();
       tm.error = e.message;
-      tm.face.status = tm.motion.status = "off";
+      f.status = "off";
     }
     return;
   }
   if (stale()) return;
 
   // 3) 모델 받기 (한 번 받은 모델은 다시 받지 않아요)
-  const load = async (key, url, lib) => {
-    const r = tm[key];
-    if (r.model) return void (r.status = "준비됨");
-    r.status = "불러오는 중...";
+  if (!f.model) {
+    f.status = "불러오는 중...";
     try {
-      r.model = await lib.load(...modelUrls(url));
-      r.status = "준비됨";
+      f.model = await window.tmImage.load(...modelUrls(tmFaceUrl()));
     } catch (e) {
-      r.status = "오류: 모델을 불러오지 못했어요";
+      f.status = "오류: 모델을 불러오지 못했어요";
       console.warn(e);
+      return;
     }
-  };
-  await Promise.all([
-    tmFaceUrl() && load("face", tmFaceUrl(), window.tmImage),
-    tmMotionUrl() && load("motion", tmMotionUrl(), poseMode ? window.tmPose : window.tmImage),
-  ]);
+  }
+  f.status = "준비됨";
   if (!stale()) tick(gen);
 }
 // 0.07초마다: 카메라 그림을 만들어 모델에 넣고 결과를 받아요
@@ -455,14 +421,6 @@ async function tick(gen) {
         const preds = await tm.face.model.predict(tm.canvas), b = best(preds);
         if (gen === tm.gen) readFace(b.className, b.probability, preds.map((q) => ({ name: q.className, p: q.probability })));
       }
-      if (tm.motion.model) {
-        const m = tm.motion.model;
-        const preds = CONFIG.TM_MOTION_TYPE === "image"
-          ? await m.predict(tm.canvas)
-          : await m.predict((await m.estimatePose(tm.canvas)).posenetOutput);  // 포즈 모델은 몸의 관절을 먼저 찾아요
-        const b = best(preds);
-        if (gen === tm.gen) readMotion(b.className, b.probability);  // 기다리는 사이에 꺼졌으면 결과를 버려요
-      }
     }
   } catch (e) {
     console.warn("티처블 머신 오류", e);
@@ -476,7 +434,6 @@ function stopTeachable() {
   tm.video?.srcObject?.getTracks().forEach((t) => t.stop());
   tm.video?.remove();
   clearFace();
-  tm.motion.dir = motion.dir = null;
 }
 
 
@@ -736,9 +693,7 @@ scenes.game = {
       mini = Object.assign(document.createElement("canvas"), { width: 150, height: Math.round((150 * MAP.h) / MAP.w) });
       mini.getContext("2d").drawImage(IMG.bg, 0, 0, mini.width, mini.height);
     }
-    // 게임 중 카메라는 동작 인식이 있을 때만 켜요 (얼굴 인식은 캐릭터 고를 때만 써서 꺼 둬요 → 컴퓨터가 덜 느려져요)
-    if (tmMotionUrl()) startTeachable();
-    else if (tm.running) stopTeachable();
+    if (tm.running) stopTeachable();  // 카메라는 캐릭터 고를 때만 써요 (게임 중엔 꺼서 컴퓨터가 덜 느려져요)
   },
   // 새 게임: 진행 상황을 모두 처음으로
   newGame() {
@@ -1114,9 +1069,6 @@ scenes.game = {
     this.hudProgress();
     this.hudMinimap();
     if (button("설정", 1110, 212, 150, 36, { size: 22, ...GRAY }) && mode === "explore") showSettings(true);
-    if (tm.cameraOn && tm.motion.model) {  // 동작 인식 상태
-      txt(tm.motion.dir ? `동작: ${tm.motion.label}` : "동작: 정지", 20, 134, 11, { bold: true, color: "#9ad0ff" });
-    }
     this.hudTargetArrow();
     this.hudHints(zname);
   },
