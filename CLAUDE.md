@@ -16,7 +16,7 @@
 | `maehol-meta/index.html` | 첫 줄 `<!-- noprotect -->`, p5 1.9.4(cdnjs), `#game` div, 스크립트 순서 `content.js` → `sketch.js` → `game.js`. **data.js 태그는 없음**(sketch.js가 직접 불러옴) | O |
 | `maehol-meta/sketch.js` (~38KB) | 코드 ①: 1.기본 값 2.파일 불러오기(대체 경로) 3.입력 4.효과음 5.화면 꾸미기 도구 6.불러오기 화면 7.setup/draw | O |
 | `maehol-meta/game.js` (~61KB) | 코드 ②: 8.월드 9.티처블 머신 10.시작·캐릭터 선택 11.게임 화면. 마지막 줄 `window.MAEHOL_GAME = true;` | O |
-| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨. 동작 인식은 사용자 요청으로 완전히 삭제), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(객관식 8 + O/X 4 = 12문제) | O (선생님/학생이 고치는 파일) |
+| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨. 동작 인식은 사용자 요청으로 완전히 삭제), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(객관식 3 + O/X 3 = 6문제, 사용자 요청으로 줄임) | O (선생님/학생이 고치는 파일) |
 | `maehol-meta/data.js` | 맵 데이터·글꼴 등 | X — 생성됨 |
 | `maehol-meta/art.png` | 그림 묶음(아틀라스+배경+타이틀+장소 사진) | X — 생성됨 |
 | `tools/make_assets.py` | art.png·data.js·zip 전부 다시 만들기 + 검사(`!!` 경고 출력) | |
@@ -69,7 +69,7 @@
 ### 테스트
 - Playwright + Chromium(`/opt/pw-browsers/chromium`, `playwright install` 금지), 로컬 node 정적 서버.
 - 확인해 온 시나리오: 정상 로드, S3 실패/멈춤, GitHub 차단→jsDelivr, 전부 차단→수동 선택, 기본 index.html, game.js 누락, file://,
-  끝까지 플레이해 퀴즈 8/8, 앉기/시작/일어나기, 잠김 상태, 사진 연출 규칙, 체육관·도서관 이동 경로, 보기 섞기 분포(Q5 고정).
+  끝까지 플레이해 퀴즈 6/6, 앉기/시작/일어나기, 잠김 상태, 사진 연출 규칙, 체육관·도서관 이동 경로, 보기 섞기 분포(Q5 고정).
 - 테스트할 때 사진 연출이 끼어들지 않게 `seen`을 미리 채워 둘 것.
 - 시험 모드: URL에 `?unlock` → 새 게임 시작 시 모든 소개 완료 처리 + 문 전부 열림 + 토스트.
   `content.js` 의 `CONFIG.TEST_MODE: true` 로도 켬(p5 에디터는 주소에 ?unlock 못 붙임). 판정은 game.js `testMode()`, 켜져 있으면 왼쪽 아래 초록 "시험 모드" 표시.
@@ -96,10 +96,10 @@
 - **일어날 때는 의자 왼쪽**으로(막히면 아래, 오른쪽 순).
 - 모두 소개 완료 & 퀴즈 전이면 책상 위에 느낌표 말풍선.
 - 반장 대화는 잠김/소개/다시 대사만 — 반장이 퀴즈를 시작하지 않음.
-- 퀴즈 8문제. **문제 순서는 그대로, 보기(정답) 순서만 섞음**. `fixed: true`인 문제(Q5 배식대 개수)는 섞지 않음.
+- 퀴즈 6문제(객관식 3: 개교 이름·교훈·배식대 / O/X 3: 점심시간·1학년 층·까치). **문제 순서는 그대로, 보기(정답) 순서만 섞음**. `fixed: true`인 문제(3번 배식대 개수)는 섞지 않음.
   `answer`는 섞기 전 인덱스.
 - 퀴즈 끝나면 일어나서 반장 `quiz.after` 대사.
-- **O/X 문제**(content.js 에서 `ox: "O"|"X"`, 9~12번): ←→로 O/X 고르고 Space, 또는 **포즈 모델**(`TM_POSE_MODEL_URL`, 클래스 O/X/가만히, `OX_CLASSES`)로 자세를 `OX_HOLD_MS`(1.5초) 유지하면 자동 답. 문제가 나오고 1초 뒤부터 인식. 퀴즈 중에만 카메라(tm.kind="pose"), 퀴즈 닫으면 끔. 포즈 모델: `https://teachablemachine.withgoogle.com/models/G3XXrkLVN/` (클래스 `O`·`X`·`Nothing`, Nothing 은 무시). 포즈 모델은 PoseNet 관절 모델을 storage.googleapis.com/tfjs-models 에서 추가로 받음(테스트는 scratchpad `posetest.js`, curl 로 route). 테스트: scratchpad `oxtest.js`(debugPose).
+- **O/X 문제**(content.js 에서 `ox: "O"|"X"`, 4~6번): ←→로 O/X 고르고 Space, 또는 **포즈 모델**(`TM_POSE_MODEL_URL`, 클래스 O/X/가만히, `OX_CLASSES`)로 자세를 `OX_HOLD_MS`(1.5초) 유지하면 자동 답. 문제가 나오고 1초 뒤부터 인식. 퀴즈 중에만 카메라(tm.kind="pose"), 퀴즈 닫으면 끔. 포즈 모델: `https://teachablemachine.withgoogle.com/models/G3XXrkLVN/` (클래스 `O`·`X`·`Nothing`, Nothing 은 무시). 포즈 모델은 PoseNet 관절 모델을 storage.googleapis.com/tfjs-models 에서 추가로 받음(테스트는 scratchpad `posetest.js`, curl 로 route). 테스트: scratchpad `oxtest.js`(debugPose).
 
 ### 장소 사진 연출
 - 장소에 **처음** 들어갈 때 사진을 흰 번쩍임·기울며 확대·반짝이 스윕·별·이름 띠와 함께 3.4초 보여주고 사라짐. Space/클릭으로 넘김.
