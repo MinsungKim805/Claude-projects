@@ -96,7 +96,7 @@
 - **일어날 때는 의자 왼쪽**으로(막히면 아래, 오른쪽 순).
 - 모두 소개 완료 & 퀴즈 전이면 책상 위에 느낌표 말풍선.
 - 반장 대화는 잠김/소개/다시 대사만 — 반장이 퀴즈를 시작하지 않음.
-- 퀴즈 6문제(객관식 3: 개교 이름·교훈·배식대 / O/X 3: 점심시간·1학년 층·까치). **문제 순서는 그대로, 보기(정답) 순서만 섞음**. `fixed: true`인 문제(3번 배식대 개수)는 섞지 않음.
+- 퀴즈 6문제(객관식 3: 개교 이름·교훈·배식대 / O/X 3: 점심시간·1학년 층·까치). **문제 순서도 무작위(사용자 요청으로 바뀜, `shuffleList`) + 보기(정답) 순서도 섞음**. `fixed: true`인 문제(3번 배식대 개수)는 섞지 않음.
   `answer`는 섞기 전 인덱스.
 - 퀴즈 끝나면 일어나서 반장 `quiz.after` 대사.
 - **O/X 문제**(content.js 에서 `ox: "O"|"X"`, 4~6번): ←→로 O/X 고르고 Space, 또는 **포즈 모델**(`TM_POSE_MODEL_URL`, 클래스 O/X/가만히, `OX_CLASSES`)로 자세를 `OX_HOLD_MS`(1.5초) 유지하면 자동 답. 문제가 나오고 1초 뒤부터 인식. 퀴즈 중에만 카메라(tm.kind="pose"), 퀴즈 닫으면 끔. 포즈 모델: `https://teachablemachine.withgoogle.com/models/G3XXrkLVN/` (클래스 `O`·`X`·`Nothing`, Nothing 은 무시). 포즈 모델은 PoseNet 관절 모델을 storage.googleapis.com/tfjs-models 에서 추가로 받음(테스트는 scratchpad `posetest.js`, curl 로 route). 테스트: scratchpad `oxtest.js`(debugPose).

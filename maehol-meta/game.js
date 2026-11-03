@@ -704,10 +704,12 @@ function shuffled(q) {
   const order = q.choices.map((_, i) => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   return { ...q, choices: order.map((i) => q.choices[i]), answer: order.indexOf(q.answer) };
 }
-// 새 퀴즈 (시작할 때마다 정답 위치가 달라져요)
+// 목록 순서를 무작위로 섞어요
+const shuffleList = (list) => list.map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+// 새 퀴즈 (시작할 때마다 문제 순서와 정답 위치가 달라져요)
 //   i: 지금 문제, sel: 고르고 있는 보기, rsel: 결과 화면에서 고른 버튼, picked: 고른 답, results: 맞았나 목록
 //   oxHold: O/X 포즈 게이지(ms), oxLast: 게이지가 차고 있는 포즈
-const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, rsel: 1, picked: -1, results: [], t: 0, oxHold: 0, oxLast: null, qs: QUIZ.map(shuffled) });
+const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, rsel: 1, picked: -1, results: [], t: 0, oxHold: 0, oxLast: null, qs: shuffleList(QUIZ).map(shuffled) });
 const allDone = () => AREAS.every((a) => done[a]);  // 4곳 소개를 모두 끝냈나
 
 // NPC 머리 위 말풍선 (없으면 null)
