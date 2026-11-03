@@ -256,28 +256,36 @@ function drawFootRing(cx, cy) {
 
 // =====================================================================
 //  9. 티처블 머신
-//     얼굴 인식: 동훈 / 민성 / 성민 / no face  →  캐릭터 고르기 (캐릭터 선택 화면에서만 카메라를 켜요)
-//     content.js 의 링크가 비어 있으면 카메라도 모델도 켜지 않아요.
+//     얼굴 인식(이미지 모델): 동훈 / 민성 / 성민 / no face → 캐릭터 고르기   (캐릭터 선택 화면에서만 카메라를 켜요)
+//     O/X 인식 (포즈 모델) : O / X / (가만히)        → O/X 퀴즈 답하기   (퀴즈를 푸는 동안만 카메라를 켜요)
+//     content.js 의 링크가 비어 있으면 카메라도 모델도 켜지 않아요. (키보드로 하면 돼요)
 //     흐름: 카메라 켜기 → 라이브러리 받기 → 모델 받기 → 0.07초마다 카메라 그림을 모델에 넣기 → 결과(클래스, 확률)
 // =====================================================================
 const tm = {
   running: false,   // 켜져 있나
+  kind: null,       // 지금 쓰는 모델: "face"(얼굴) / "pose"(O/X 포즈)
   gen: 0,           // 켤 때마다 바뀌는 번호 (껐다 켜면 예전에 하던 일은 멈춰요)
   cameraOn: false,
   error: null,      // 카메라·라이브러리 오류 (화면에 보여 줘요)
   video: null,      // 카메라 영상 (화면에는 안 보이게 숨겨요)
   canvas: null,     // 모델에 넣을 224 x 224 그림
   face: { status: "off", model: null, label: "", prob: 0, probs: [], key: null, none: false },  // key = 인식된 캐릭터, none = 사람 없음
+  pose: { status: "off", model: null, label: "", prob: 0, key: null, keypoints: [] },          // key = "O" / "X" / null
 };
 const tmFaceUrl = () => (CONFIG.TM_FACE_MODEL_URL || "").trim();
+const tmPoseUrl = () => (CONFIG.TM_POSE_MODEL_URL || "").trim();
+const tmUrlOf = (kind) => (kind === "pose" ? tmPoseUrl() : tmFaceUrl());
 
 // 이름 비교: 대소문자·띄어쓰기를 무시해요 ("No one" = "noone")
 const simple = (s) => String(s ?? "").toLowerCase().replace(/\s+/g, "");
 const sameName = (label, list) => (list || []).some((n) => simple(n) === simple(label));
 
-// 얼굴 인식 결과 지우기 (예전 결과가 남아서 저절로 골라지지 않게)
+// 인식 결과 지우기 (예전 결과가 남아서 저절로 골라지지 않게)
 function clearFace() {
   Object.assign(tm.face, { label: "", prob: 0, probs: [], key: null, none: false });
+}
+function clearPose() {
+  Object.assign(tm.pose, { label: "", prob: 0, key: null, keypoints: [] });
 }
 // 얼굴: 클래스 이름 → 캐릭터.   ("민성", 0.97) → face.key = "minseong",   ("no face", 0.99) → face.none = true
 function readFace(label, prob, probs = []) {
@@ -286,10 +294,21 @@ function readFace(label, prob, probs = []) {
   if (f.none || prob < CONFIG.FACE_MIN_PROB) return;  // 사람이 없거나 확률이 낮으면 아직 모르는 걸로
   f.key = Object.keys(CONFIG.FACE_CLASSES).find((k) => sameName(label, CONFIG.FACE_CLASSES[k])) || null;
 }
-// 시험용 (F12 콘솔에서): debugFace("민성", 0.95) / debugFace("no face")
+// 포즈: 클래스 이름 → O / X.   ("O", 0.93) → pose.key = "O"
+function readPose(label, prob, keypoints = []) {
+  const p = tm.pose;
+  Object.assign(p, { label, prob, keypoints, key: null });
+  if (prob < CONFIG.OX_MIN_PROB) return;  // 확률이 낮으면 아직 모르는 걸로
+  p.key = ["O", "X"].find((k) => sameName(label, CONFIG.OX_CLASSES[k])) || null;
+}
+// 시험용 (F12 콘솔에서): debugFace("민성", 0.95) / debugFace("no face") / debugPose("O") / debugPose("가만히")
 const debugFace = (label, prob = 0.95) => {
   tm.face.status = "준비됨(테스트)";
   readFace(label, prob, [{ name: label, p: prob }]);
+};
+const debugPose = (label, prob = 0.95) => {
+  tm.pose.status = "준비됨(테스트)";
+  readPose(label, prob);
 };
 
 // ---- 라이브러리 받기: 첫 주소(jsDelivr)가 막히면 두 번째(unpkg)로 받아요. 20초 넘게 안 오면 다음 주소로.
@@ -318,8 +337,10 @@ function loadScript(src) {
 const CDNS = ["https://cdn.jsdelivr.net/npm/", "https://unpkg.com/"];
 const LIB = {
   tf: CDNS.map((cdn) => cdn + "@tensorflow/tfjs@1.3.1/dist/tf.min.js"),
-  image: CDNS.map((cdn) => cdn + "@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"),
+  face: CDNS.map((cdn) => cdn + "@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"),
+  pose: CDNS.map((cdn) => cdn + "@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"),
 };
+const tmLibrary = (kind) => (kind === "pose" ? window.tmPose : window.tmImage);
 async function loadLib(srcs) {
   for (const src of srcs) {
     const ok = await loadScript(src).then(() => true, () => false);
@@ -343,12 +364,16 @@ function modelUrls(base) {
   return [base + "model.json", base + "metadata.json"];
 }
 
-// 티처블 머신 켜기
-async function startTeachable() {
-  if (tm.running || !tmFaceUrl()) return;
+// 티처블 머신 켜기.  kind = "face"(캐릭터 선택) 또는 "pose"(O/X 퀴즈)
+async function startTeachable(kind) {
+  if (tm.running && tm.kind === kind) return;
+  if (tm.running) stopTeachable();  // 다른 모델을 쓰던 중이면 끄고 다시
+  if (!tmUrlOf(kind)) return;
   tm.running = true;
+  tm.kind = kind;
   const gen = ++tm.gen;
   const stale = () => gen !== tm.gen;  // 기다리는 동안 꺼졌나 (다른 화면으로 갔을 때)
+  const r = tm[kind];
 
   // 1) 카메라 켜기 (https 또는 localhost 에서만 돼요)
   try {
@@ -373,33 +398,32 @@ async function startTeachable() {
   }
 
   // 2) 라이브러리 받기
-  const f = tm.face;
-  f.status = "프로그램 받는 중...";
+  r.status = "프로그램 받는 중...";
   try {
     await loadLib(LIB.tf);
-    await loadLib(LIB.image);
+    await loadLib(LIB[kind]);
   } catch (e) {
     if (!stale()) {
       stopTeachable();
       tm.error = e.message;
-      f.status = "off";
+      r.status = "off";
     }
     return;
   }
   if (stale()) return;
 
   // 3) 모델 받기 (한 번 받은 모델은 다시 받지 않아요)
-  if (!f.model) {
-    f.status = "불러오는 중...";
+  if (!r.model) {
+    r.status = "불러오는 중...";
     try {
-      f.model = await window.tmImage.load(...modelUrls(tmFaceUrl()));
+      r.model = await tmLibrary(kind).load(...modelUrls(tmUrlOf(kind)));
     } catch (e) {
-      f.status = "오류: 모델을 불러오지 못했어요";
+      r.status = "오류: 모델을 불러오지 못했어요";
       console.warn(e);
       return;
     }
   }
-  f.status = "준비됨";
+  r.status = "준비됨";
   if (!stale()) tick(gen);
 }
 // 0.07초마다: 카메라 그림을 만들어 모델에 넣고 결과를 받아요
@@ -417,9 +441,14 @@ async function tick(gen) {
       c.restore();
 
       const best = (preds) => preds.reduce((a, b) => (b.probability > a.probability ? b : a));  // 확률이 제일 큰 것
-      if (tm.face.model && scene === "select") {  // 얼굴은 캐릭터 선택 화면에서만
+      if (tm.kind === "face" && tm.face.model && scene === "select") {
         const preds = await tm.face.model.predict(tm.canvas), b = best(preds);
         if (gen === tm.gen) readFace(b.className, b.probability, preds.map((q) => ({ name: q.className, p: q.probability })));
+      }
+      if (tm.kind === "pose" && tm.pose.model) {  // 포즈 모델은 몸의 관절을 먼저 찾고, 그 결과로 O/X 를 골라요
+        const { pose, posenetOutput } = await tm.pose.model.estimatePose(tm.canvas);
+        const preds = await tm.pose.model.predict(posenetOutput), b = best(preds);
+        if (gen === tm.gen) readPose(b.className, b.probability, pose?.keypoints || []);
       }
     }
   } catch (e) {
@@ -431,9 +460,11 @@ async function tick(gen) {
 function stopTeachable() {
   tm.gen++;
   tm.running = tm.cameraOn = false;
+  tm.kind = null;
   tm.video?.srcObject?.getTracks().forEach((t) => t.stop());
   tm.video?.remove();
   clearFace();
+  clearPose();
 }
 
 
@@ -508,7 +539,7 @@ scenes.select = {
     holdMs = 0;
     lastFace = null;
     clearFace();
-    startTeachable();
+    startTeachable("face");
   },
   choose(i) {
     if (i === sel) return;
@@ -668,13 +699,15 @@ let photo = null;        // 지금 보여 주는 사진 { t, id, name }
 
 // 퀴즈 하나의 보기를 섞고 정답 번호도 맞춰 바꿔요 (fixed: true 면 그대로)
 function shuffled(q) {
+  if (q.ox) return { ...q, isOX: true, choices: ["O", "X"], answer: simple(q.ox) === "x" ? 1 : 0 };  // O/X 문제: 보기 0 = O, 1 = X
   if (q.fixed) return q;
   const order = q.choices.map((_, i) => [Math.random(), i]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
   return { ...q, choices: order.map((i) => q.choices[i]), answer: order.indexOf(q.answer) };
 }
 // 새 퀴즈 (시작할 때마다 정답 위치가 달라져요)
 //   i: 지금 문제, sel: 고르고 있는 보기, rsel: 결과 화면에서 고른 버튼, picked: 고른 답, results: 맞았나 목록
-const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, rsel: 1, picked: -1, results: [], t: 0, qs: QUIZ.map(shuffled) });
+//   oxHold: O/X 포즈 게이지(ms), oxLast: 게이지가 차고 있는 포즈
+const newQuiz = () => ({ i: 0, score: 0, state: "ask", sel: 0, rsel: 1, picked: -1, results: [], t: 0, oxHold: 0, oxLast: null, qs: QUIZ.map(shuffled) });
 const allDone = () => AREAS.every((a) => done[a]);  // 4곳 소개를 모두 끝냈나
 
 // NPC 머리 위 말풍선 (없으면 null)
@@ -932,6 +965,7 @@ scenes.game = {
     mode = "quiz";
     quiz = newQuiz();
     sfx("select");
+    if (quiz.qs.some((q) => q.isOX)) startTeachable("pose");  // O/X 문제가 있으면 포즈 인식 카메라를 미리 켜 둬요
   },
   seatedUpdate(dt) {
     updateWorld(dt, { x: 0, y: 0 });
@@ -962,6 +996,8 @@ scenes.game = {
     quiz.picked = -1;
     quiz.sel = 0;
     quiz.t = 0;
+    quiz.oxHold = 0;
+    quiz.oxLast = null;
     if (quiz.i < QUIZ.length) {
       quiz.state = "ask";
       return;
@@ -974,7 +1010,8 @@ scenes.game = {
   quizUpdate(dt) {
     quiz.t += dt;
     updateWorld(dt, { x: 0, y: 0 });
-    if (quiz.state === "ask") {
+    if (quiz.state === "ask" && quiz.qs[quiz.i].isOX) this.oxUpdate(dt);
+    else if (quiz.state === "ask") {
       if (numberKey() >= 0) this.pick(numberKey());  // 1~4 키
       if (navKey()) {  // ↑ ↓ 로 보기 고르기
         const n = quiz.qs[quiz.i].choices.length;
@@ -998,6 +1035,29 @@ scenes.game = {
       if (action() && quiz.t > 0.4) this.resultAct(quiz.rsel);
     }
   },
+  // O/X 문제: ← → (↑ ↓) 로 고르고 Space,  또는 팔로 O / X 를 만들어 OX_HOLD_MS 동안 멈추면 저절로 답해요
+  oxUpdate(dt) {
+    const right = was("ArrowRight") || was("ArrowDown") || was("KeyD");
+    const left = was("ArrowLeft") || was("ArrowUp") || was("KeyA");
+    if (right || left) {
+      quiz.sel = right ? 1 : 0;
+      sfx("click");
+    }
+    if (numberKey() === 0 || numberKey() === 1) return this.pick(numberKey());  // 1 = O, 2 = X
+    if (action()) return this.pick(quiz.sel);
+
+    const key = tm.kind === "pose" ? tm.pose.key : null;
+    if (key && quiz.t > 1) {  // 문제가 나오고 1초 뒤부터 (앞 문제의 자세가 그대로 들어가지 않게)
+      const i = key === "O" ? 0 : 1;
+      quiz.sel = i;
+      if (key !== quiz.oxLast) quiz.oxHold = 0;  // 다른 자세로 바뀌면 처음부터
+      quiz.oxHold += dt * 1000;
+      quiz.oxLast = key;
+      if (quiz.oxHold >= CONFIG.OX_HOLD_MS) this.pick(i);
+    } else {
+      quiz.oxHold = Math.max(0, quiz.oxHold - dt * 500);  // 자세가 잠깐 흔들리면 천천히 줄어요
+    }
+  },
   // 결과 화면 버튼: 0 다시 풀기 · 1 계속 둘러보기 · 2 처음으로
   resultAct(i) {
     if (i === 0) {
@@ -1008,6 +1068,7 @@ scenes.game = {
   },
   // 퀴즈를 닫으면 일어나서 반장이 마무리 인사를 해요
   closeQuiz() {
+    if (tm.running) stopTeachable();  // 포즈 인식 카메라 끄기
     this.stand();
     quiz = null;
     cooldown.banjang = 1.5;
@@ -1198,7 +1259,8 @@ scenes.game = {
 
     const qLines = wrapText(q.q, w - 100, 30, true);
     qLines.forEach((l, i) => txt(l, x + 50, y + 76 + i * 42, 30, { bold: true }));
-    q.choices.forEach((choice, i) => {
+    if (q.isOX) this.drawOX(x, y, w, qLines.length);
+    else q.choices.forEach((choice, i) => {
       const by = y + 96 + qLines.length * 42 + i * 74;
       const on = hover(x + 50, by, w - 100, 62) && Q.state === "ask";
       const [fillC, border] = this.choiceColors(i, on);
@@ -1219,7 +1281,9 @@ scenes.game = {
     });
 
     if (Q.state === "ask") {
-      txt("↑ ↓ 로 고르고 Space 로 정해요", x + w / 2, y + h - 34, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
+      let hint = "↑ ↓ 로 고르고 Space 로 정해요";
+      if (q.isOX) hint = tmPoseUrl() ? "팔로 O 나 X 를 만들고 잠깐 멈춰요  ·  ← → 로 고르고 Space 도 돼요" : "← → 로 O / X 를 고르고 Space 로 정해요";
+      txt(hint, x + w / 2, y + h - 34, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
       return;
     }
     // 정답 확인: 맞았나, 해설, [다음 문제] 버튼
@@ -1229,6 +1293,71 @@ scenes.game = {
     const last = Q.i === QUIZ.length - 1;
     if (button(last ? "결과 보기" : "다음 문제", x + w - 250, fy + 6, 200, 60, { size: 24, focus: true }) && Q.t > 0.3) this.next();
     txt("Space", x + w - 150, fy + 76, 11, { align: CENTER, color: "rgba(255,255,255,0.6)" });
+  },
+  // O/X 문제 화면: 왼쪽 큰 O 칸, 오른쪽 큰 X 칸, 가운데 카메라 (포즈 모델 링크가 있을 때)
+  drawOX(x, y, w, qLineCount) {
+    const Q = quiz, q = Q.qs[Q.i];
+    const top = y + 112 + qLineCount * 42, bw = 300, bh = 250;
+    const boxes = [x + 70, x + w - 70 - bw];  // O 칸, X 칸의 x
+    boxes.forEach((bx, i) => {
+      const on = hover(bx, top, bw, bh) && Q.state === "ask";
+      const [fillC, border] = this.choiceColors(i, on);
+      panel(bx, top, bw, bh, { fill: fillC, border, r: 18, bw: Q.sel === i && Q.state === "ask" ? 6 : 4 });
+      const cx = bx + bw / 2, cy = top + bh / 2 - 10;
+      push();
+      noFill();
+      strokeWeight(22);
+      if (i === 0) {  // O
+        stroke("#5ab0ff");
+        ellipse(cx, cy, 140, 140);
+      } else {  // X
+        stroke("#ff6a7a");
+        line(cx - 60, cy - 60, cx + 60, cy + 60);
+        line(cx + 60, cy - 60, cx - 60, cy + 60);
+      }
+      pop();
+      if (Q.state === "feedback" && i === q.answer) txt("정답!", cx, top + bh - 36, 22, { align: CENTER, bold: true, color: "#b8ffd0" });
+      // 포즈 게이지 (이 칸의 자세가 인식되는 동안 차올라요)
+      if (Q.state === "ask" && Q.oxLast === q.choices[i] && Q.oxHold > 0) {
+        const full = constrain(Q.oxHold / CONFIG.OX_HOLD_MS, 0, 1);
+        push();
+        noStroke();
+        fill("rgba(0,0,0,0.35)");
+        rect(bx + 24, top + bh - 22, bw - 48, 10, 5);
+        fill(tm.pose.key === q.choices[i] ? "#4fd17a" : "#b8c890");
+        rect(bx + 24, top + bh - 22, (bw - 48) * full, 10, 5);
+        pop();
+      }
+      if (on) {  // 클릭해서 고르기
+        cursor("pointer");
+        if (clicked(bx, top, bw, bh)) this.pick(i);
+      }
+    });
+    if (tmPoseUrl()) this.drawPoseCamera(x + w / 2 - 95, top + 10, 190);
+  },
+  // O/X 퀴즈 가운데 작은 카메라: 내 모습 + 관절 점 + 인식 결과
+  drawPoseCamera(cx, cy, size) {
+    const p = tm.pose;
+    panel(cx - 4, cy - 4, size + 8, size + 8, { fill: "#0a0818", border: "#6a66c0", bw: 3, r: 8, shadow: false });
+    const modelFailed = p.status.startsWith("오류");
+    if (tm.kind === "pose" && tm.cameraOn && !tm.error && !modelFailed) {
+      drawingContext.drawImage(tm.canvas, cx, cy, size, size);
+      push();
+      noStroke();
+      fill("#ffe27a");
+      for (const k of p.keypoints) {
+        if (k.score > 0.5) circle(cx + (k.position.x * size) / 224, cy + (k.position.y * size) / 224, 6);
+      }
+      pop();
+    } else {
+      const msg = tm.error || (modelFailed ? p.status + "\n\ncontent.js 의 TM_POSE_MODEL_URL 링크를 확인해 주세요. (← → 와 Space 로는 계속 풀 수 있어요)" : "카메라를 켜는 중...");
+      wrapText(msg, size - 20, 11).slice(0, 8).forEach((l, i) => txt(l, cx + 10, cy + 14 + i * 18, 11, { color: "#ffb0b0" }));
+    }
+    let label = "자세를 보여 주세요", color = "#d8d4ff";
+    if (p.key) [label, color] = [`${p.key}  ${Math.round(p.prob * 100)}%`, "#8affb0"];
+    else if (p.label) [label, color] = [`${p.label}  ${Math.round(p.prob * 100)}%`, "#ffe27a"];
+    else if (p.status !== "준비됨" && p.status !== "off" && !tm.error) label = p.status;
+    txt(label, cx + size / 2, cy + size + 16, 16, { align: CENTER, bold: true, color });
   },
   // 보기 칸 색: [채우기, 테두리]
   choiceColors(i, hovered) {

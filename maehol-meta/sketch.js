@@ -270,6 +270,10 @@ function checkContent() {
   else {
     QUIZ.forEach((q, i) => {
       const n = i + 1;
+      if (q.ox !== undefined) {  // O/X 문제
+        if (!q.q || !["o", "x"].includes(String(q.ox).toLowerCase())) bad.push(`퀴즈 ${n}번 : O/X 문제는 q 와 ox: "O" 또는 ox: "X" 가 필요해요`);
+        return;
+      }
       if (!q.q || !Array.isArray(q.choices) || q.choices.length < 2 || q.choices.length > 4) {
         bad.push(`퀴즈 ${n}번 : 문제(q)와 보기(choices 2~4개)가 필요해요`);
       } else if (!Number.isInteger(q.answer) || q.answer < 0 || q.answer >= q.choices.length) {
@@ -278,7 +282,7 @@ function checkContent() {
     });
   }
 
-  for (const k of ["PLAYER_SPEED", "TEXT_SPEED", "FACE_MIN_PROB", "FACE_HOLD_MS"]) {
+  for (const k of ["PLAYER_SPEED", "TEXT_SPEED", "FACE_MIN_PROB", "FACE_HOLD_MS", "OX_MIN_PROB", "OX_HOLD_MS"]) {
     if (typeof C[k] !== "number") bad.push(`CONFIG.${k} : 숫자가 필요해요`);
   }
   return bad;
@@ -650,9 +654,12 @@ function drawSettings() {
   });
 
   txt("티처블 머신", x + 50, y + 312, 24, { bold: true, color: "#ffe27a" });
-  const [faceText, faceColor] = tmStatusText(tmFaceUrl(), tm.face);
-  txt("얼굴 인식 (캐릭터 선택)", x + 50, y + 352, 22);
-  txt(faceText, x + 400, y + 352, 22, { color: faceColor });
+  const tmRows = [["얼굴 인식 (캐릭터 선택)", tmFaceUrl(), tm.face], ["O/X 포즈 (O/X 퀴즈)", tmPoseUrl(), tm.pose]];
+  tmRows.forEach(([name, url, r], i) => {
+    const [text, color] = tmStatusText(url, r);
+    txt(name, x + 50, y + 352 + i * 38, 22);
+    txt(text, x + 400, y + 352 + i * 38, 22, { color });
+  });
   txt("링크는 content.js 맨 위에 붙여 넣어요.", x + 50, y + 432, 11, { color: "rgba(255,255,255,0.65)" });
 
   const by = y + h - 84;

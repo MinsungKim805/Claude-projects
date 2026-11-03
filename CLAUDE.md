@@ -16,7 +16,7 @@
 | `maehol-meta/index.html` | 첫 줄 `<!-- noprotect -->`, p5 1.9.4(cdnjs), `#game` div, 스크립트 순서 `content.js` → `sketch.js` → `game.js`. **data.js 태그는 없음**(sketch.js가 직접 불러옴) | O |
 | `maehol-meta/sketch.js` (~38KB) | 코드 ①: 1.기본 값 2.파일 불러오기(대체 경로) 3.입력 4.효과음 5.화면 꾸미기 도구 6.불러오기 화면 7.setup/draw | O |
 | `maehol-meta/game.js` (~61KB) | 코드 ②: 8.월드 9.티처블 머신 10.시작·캐릭터 선택 11.게임 화면. 마지막 줄 `window.MAEHOL_GAME = true;` | O |
-| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨. 동작 인식은 사용자 요청으로 완전히 삭제), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(8문제) | O (선생님/학생이 고치는 파일) |
+| `maehol-meta/content.js` | `CONFIG`(얼굴 TM 링크 연결됨. 동작 인식은 사용자 요청으로 완전히 삭제), `MAEHOL_SCRIPT`(대사), `MAEHOL_QUIZ`(객관식 8 + O/X 4 = 12문제) | O (선생님/학생이 고치는 파일) |
 | `maehol-meta/data.js` | 맵 데이터·글꼴 등 | X — 생성됨 |
 | `maehol-meta/art.png` | 그림 묶음(아틀라스+배경+타이틀+장소 사진) | X — 생성됨 |
 | `tools/make_assets.py` | art.png·data.js·zip 전부 다시 만들기 + 검사(`!!` 경고 출력) | |
@@ -99,6 +99,7 @@
 - 퀴즈 8문제. **문제 순서는 그대로, 보기(정답) 순서만 섞음**. `fixed: true`인 문제(Q5 배식대 개수)는 섞지 않음.
   `answer`는 섞기 전 인덱스.
 - 퀴즈 끝나면 일어나서 반장 `quiz.after` 대사.
+- **O/X 문제**(content.js 에서 `ox: "O"|"X"`, 9~12번): ←→로 O/X 고르고 Space, 또는 **포즈 모델**(`TM_POSE_MODEL_URL`, 클래스 O/X/가만히, `OX_CLASSES`)로 자세를 `OX_HOLD_MS`(1.5초) 유지하면 자동 답. 문제가 나오고 1초 뒤부터 인식. 퀴즈 중에만 카메라(tm.kind="pose"), 퀴즈 닫으면 끔. 포즈 링크는 **아직 비어 있음**(사용자가 만들어야 함). 테스트: scratchpad `oxtest.js`(debugPose).
 
 ### 장소 사진 연출
 - 장소에 **처음** 들어갈 때 사진을 흰 번쩍임·기울며 확대·반짝이 스윕·별·이름 띠와 함께 3.4초 보여주고 사라짐. Space/클릭으로 넘김.
