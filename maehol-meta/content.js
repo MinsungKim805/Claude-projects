@@ -31,7 +31,7 @@ window.CONFIG = {
   //    예)  "https://teachablemachine.withgoogle.com/models/AbCdEfGhI/"
   // -------------------------------------------------------------------
   TM_FACE_MODEL_URL: "https://teachablemachine.withgoogle.com/models/IsJukufkt/",     // 얼굴 인식 모델 링크  → 캐릭터를 골라요 (클래스: 동훈 / 민성 / 성민 / no face)
-  TM_POSE_MODEL_URL: "",     // O/X 포즈 모델 링크 (티처블 머신 "포즈 프로젝트")  → O/X 퀴즈를 몸으로 답해요 (클래스: O / X / 가만히)
+  TM_POSE_MODEL_URL: "https://teachablemachine.withgoogle.com/models/G3XXrkLVN/",     // O/X 포즈 모델 링크 (포즈 프로젝트) → O/X 퀴즈를 몸으로 답해요 (클래스: O / X / Nothing)
 
 
   // -------------------------------------------------------------------
@@ -54,7 +54,7 @@ window.CONFIG = {
   // -------------------------------------------------------------------
   // 3. O/X 포즈 인식: 클래스 이름 → O / X
   //    팔로 머리 위에 동그라미를 만들면 O, 팔을 X 자로 엇갈리면 X 예요.
-  //    그 밖의 클래스(예: "가만히")는 아무것도 고르지 않아요.
+  //    그 밖의 클래스(예: "Nothing")는 아무것도 고르지 않아요.
   // -------------------------------------------------------------------
   OX_CLASSES: {
     O: ["O", "오", "동그라미"],

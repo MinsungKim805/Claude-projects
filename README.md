@@ -78,7 +78,7 @@ p5 웹 에디터는 한 번에 6개까지 올릴 수 있어서, `maehol-meta/` �
 
 | 칸 | 모델 | 하는 일 |
 |---|---|---|
-| `TM_POSE_MODEL_URL` | **포즈 프로젝트** | O/X 퀴즈를 몸으로 답하기 (클래스: `O` `X` `가만히`). 팔로 머리 위에 동그라미 = O, 팔을 X 자로 = X. 1.5초 유지하면 답이 정해져요 |
+| `TM_POSE_MODEL_URL` | **포즈 프로젝트** | O/X 퀴즈를 몸으로 답하기 (클래스: `O` `X` `Nothing`) — **연결됨**: `https://teachablemachine.withgoogle.com/models/G3XXrkLVN/`. 팔로 머리 위에 동그라미 = O, 팔을 X 자로 = X. 1.5초 유지하면 답이 정해져요 |
 | `TM_FACE_MODEL_URL` | 이미지 프로젝트 | 얼굴 인식 → 캐릭터 선택 (클래스: `동훈` `민성` `성민` `no face`) — **연결됨**: `https://teachablemachine.withgoogle.com/models/IsJukufkt/` |
 
 1. 티처블 머신에서 모델을 **내보내기 ▸ 업로드(공유 가능한 링크)** 해서 링크를 복사해요.

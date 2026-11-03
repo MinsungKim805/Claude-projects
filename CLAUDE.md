@@ -99,7 +99,7 @@
 - 퀴즈 8문제. **문제 순서는 그대로, 보기(정답) 순서만 섞음**. `fixed: true`인 문제(Q5 배식대 개수)는 섞지 않음.
   `answer`는 섞기 전 인덱스.
 - 퀴즈 끝나면 일어나서 반장 `quiz.after` 대사.
-- **O/X 문제**(content.js 에서 `ox: "O"|"X"`, 9~12번): ←→로 O/X 고르고 Space, 또는 **포즈 모델**(`TM_POSE_MODEL_URL`, 클래스 O/X/가만히, `OX_CLASSES`)로 자세를 `OX_HOLD_MS`(1.5초) 유지하면 자동 답. 문제가 나오고 1초 뒤부터 인식. 퀴즈 중에만 카메라(tm.kind="pose"), 퀴즈 닫으면 끔. 포즈 링크는 **아직 비어 있음**(사용자가 만들어야 함). 테스트: scratchpad `oxtest.js`(debugPose).
+- **O/X 문제**(content.js 에서 `ox: "O"|"X"`, 9~12번): ←→로 O/X 고르고 Space, 또는 **포즈 모델**(`TM_POSE_MODEL_URL`, 클래스 O/X/가만히, `OX_CLASSES`)로 자세를 `OX_HOLD_MS`(1.5초) 유지하면 자동 답. 문제가 나오고 1초 뒤부터 인식. 퀴즈 중에만 카메라(tm.kind="pose"), 퀴즈 닫으면 끔. 포즈 모델: `https://teachablemachine.withgoogle.com/models/G3XXrkLVN/` (클래스 `O`·`X`·`Nothing`, Nothing 은 무시). 포즈 모델은 PoseNet 관절 모델을 storage.googleapis.com/tfjs-models 에서 추가로 받음(테스트는 scratchpad `posetest.js`, curl 로 route). 테스트: scratchpad `oxtest.js`(debugPose).
 
 ### 장소 사진 연출
 - 장소에 **처음** 들어갈 때 사진을 흰 번쩍임·기울며 확대·반짝이 스윕·별·이름 띠와 함께 3.4초 보여주고 사라짐. Space/클릭으로 넘김.
