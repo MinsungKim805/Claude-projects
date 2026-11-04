@@ -256,14 +256,14 @@ function drawFootRing(cx, cy) {
 
 // =====================================================================
 //  9. 티처블 머신
-//     얼굴 인식(이미지 모델): 동훈 / 민성 / 성민 / no face → 캐릭터 고르기   (캐릭터 선택 화면에서만 카메라를 켜요)
-//     O/X 인식 (포즈 모델) : O / X / (가만히)        → O/X 퀴즈 답하기   (퀴즈를 푸는 동안만 카메라를 켜요)
+//     얼굴 인식(이미지 모델): 동훈 / 민성 / 성민 / no face → 캐릭터 고르기   (캐릭터 선택 화면에서만 인식해요)
+//     O/X 인식 (포즈 모델) : O / X / Nothing          → O/X 퀴즈 답하기   (O/X 문제를 푸는 동안만 인식해요)
+//     사이트를 켜면(시작 화면) 카메라와 두 모델을 미리 준비해 둬요. 인식은 필요한 화면에서만 돌려서 컴퓨터가 느려지지 않게 해요.
 //     content.js 의 링크가 비어 있으면 카메라도 모델도 켜지 않아요. (키보드로 하면 돼요)
 //     흐름: 카메라 켜기 → 라이브러리 받기 → 모델 받기 → 0.07초마다 카메라 그림을 모델에 넣기 → 결과(클래스, 확률)
 // =====================================================================
 const tm = {
   running: false,   // 켜져 있나
-  kind: null,       // 지금 쓰는 모델: "face"(얼굴) / "pose"(O/X 포즈)
   gen: 0,           // 켤 때마다 바뀌는 번호 (껐다 켜면 예전에 하던 일은 멈춰요)
   cameraOn: false,
   error: null,      // 카메라·라이브러리 오류 (화면에 보여 줘요)
@@ -364,16 +364,13 @@ function modelUrls(base) {
   return [base + "model.json", base + "metadata.json"];
 }
 
-// 티처블 머신 켜기.  kind = "face"(캐릭터 선택) 또는 "pose"(O/X 퀴즈)
-async function startTeachable(kind) {
-  if (tm.running && tm.kind === kind) return;
-  if (tm.running) stopTeachable();  // 다른 모델을 쓰던 중이면 끄고 다시
-  if (!tmUrlOf(kind)) return;
+// 티처블 머신 켜기: 카메라 + 라이브러리 + 얼굴·포즈 모델을 한꺼번에 준비해요 (이미 켜져 있으면 그대로)
+async function startTeachable() {
+  if (tm.running || (!tmFaceUrl() && !tmPoseUrl())) return;
   tm.running = true;
-  tm.kind = kind;
   const gen = ++tm.gen;
-  const stale = () => gen !== tm.gen;  // 기다리는 동안 꺼졌나 (다른 화면으로 갔을 때)
-  const r = tm[kind];
+  const stale = () => gen !== tm.gen;  // 기다리는 동안 꺼졌나
+  const kinds = ["face", "pose"].filter((k) => tmUrlOf(k));  // 링크가 있는 모델만
 
   // 1) 카메라 켜기 (https 또는 localhost 에서만 돼요)
   try {
@@ -398,40 +395,58 @@ async function startTeachable(kind) {
   }
 
   // 2) 라이브러리 받기
-  r.status = "프로그램 받는 중...";
+  kinds.forEach((k) => (tm[k].status = "프로그램 받는 중..."));
   try {
     await loadLib(LIB.tf);
-    await loadLib(LIB[kind]);
+    for (const k of kinds) await loadLib(LIB[k]);
   } catch (e) {
     if (!stale()) {
       stopTeachable();
       tm.error = e.message;
-      r.status = "off";
+      kinds.forEach((k) => (tm[k].status = "off"));
     }
     return;
   }
   if (stale()) return;
 
-  // 3) 모델 받기 (한 번 받은 모델은 다시 받지 않아요)
-  if (!r.model) {
+  // 3) 모델 받기 (두 모델을 동시에. 한 번 받은 모델은 다시 받지 않아요)
+  const loadModel = async (k) => {
+    const r = tm[k];
+    if (r.model) return void (r.status = "준비됨");
     r.status = "불러오는 중...";
     try {
-      r.model = await tmLibrary(kind).load(...modelUrls(tmUrlOf(kind)));
+      r.model = await tmLibrary(k).load(...modelUrls(tmUrlOf(k)));
+      r.status = "예열 중...";
+      await warmUp(k, r.model);  // 처음 한 번은 오래 걸려서, 미리 빈 그림으로 한 번 돌려 둬요
+      r.status = "준비됨";
     } catch (e) {
       r.status = "오류: 모델을 불러오지 못했어요";
       console.warn(e);
-      return;
     }
-  }
-  r.status = "준비됨";
+  };
+  await Promise.all(kinds.map(loadModel));
   if (!stale()) tick(gen);
+}
+// 모델 예열: 처음 인식은 몇 초씩 걸려서, 준비할 때 미리 한 번 돌려 둬요 (그래야 실제로 쓸 때 바로 반응해요)
+async function warmUp(kind, model) {
+  if (kind === "pose") {
+    const { posenetOutput } = await model.estimatePose(tm.canvas);
+    await model.predict(posenetOutput);
+  } else await model.predict(tm.canvas);
+}
+// 지금 어떤 인식이 필요한가: 캐릭터 선택 화면 → "face",  O/X 문제를 푸는 중 → "pose",  그 밖에는 null (인식을 쉬어요)
+function tmNeed() {
+  if (scene === "select" && tm.face.model) return "face";
+  const oxAsk = scene === "game" && mode === "quiz" && quiz?.state === "ask" && quiz.qs[quiz.i].isOX;
+  if (oxAsk && tm.pose.model) return "pose";
+  return null;
 }
 // 0.07초마다: 카메라 그림을 만들어 모델에 넣고 결과를 받아요
 async function tick(gen) {
   if (!tm.running || gen !== tm.gen) return;
   try {
-    const v = tm.video;
-    if (v.readyState >= 2 && v.videoWidth) {
+    const v = tm.video, need = tmNeed();
+    if (need && v.readyState >= 2 && v.videoWidth) {
       // 가운데 정사각형만 잘라서 거울처럼 좌우를 뒤집어요 (티처블 머신 웹캠과 같게)
       const s = Math.min(v.videoWidth, v.videoHeight), c = tm.canvas.getContext("2d");
       c.save();
@@ -441,14 +456,14 @@ async function tick(gen) {
       c.restore();
 
       const best = (preds) => preds.reduce((a, b) => (b.probability > a.probability ? b : a));  // 확률이 제일 큰 것
-      if (tm.kind === "face" && tm.face.model && scene === "select") {
+      if (need === "face") {
         const preds = await tm.face.model.predict(tm.canvas), b = best(preds);
-        if (gen === tm.gen) readFace(b.className, b.probability, preds.map((q) => ({ name: q.className, p: q.probability })));
+        if (gen === tm.gen && tmNeed() === "face") readFace(b.className, b.probability, preds.map((q) => ({ name: q.className, p: q.probability })));
       }
-      if (tm.kind === "pose" && tm.pose.model) {  // 포즈 모델은 몸의 관절을 먼저 찾고, 그 결과로 O/X 를 골라요
+      if (need === "pose") {  // 포즈 모델은 몸의 관절을 먼저 찾고, 그 결과로 O/X 를 골라요
         const { pose, posenetOutput } = await tm.pose.model.estimatePose(tm.canvas);
         const preds = await tm.pose.model.predict(posenetOutput), b = best(preds);
-        if (gen === tm.gen) readPose(b.className, b.probability, pose?.keypoints || []);
+        if (gen === tm.gen && tmNeed() === "pose") readPose(b.className, b.probability, pose?.keypoints || []);
       }
     }
   } catch (e) {
@@ -460,7 +475,6 @@ async function tick(gen) {
 function stopTeachable() {
   tm.gen++;
   tm.running = tm.cameraOn = false;
-  tm.kind = null;
   tm.video?.srcObject?.getTracks().forEach((t) => t.stop());
   tm.video?.remove();
   clearFace();
@@ -476,7 +490,7 @@ const START_BTN = [543, 620, 194, 62];  // [x, y, 가로, 세로]
 const GEAR_BTN = [1180, 626, 76, 80];
 scenes.title = {
   enter() {
-    if (tm.running) stopTeachable();
+    startTeachable();  // 사이트를 켜면 카메라와 두 모델을 미리 준비해요
   },
   update() {
     if (settingsOpen) return;
@@ -539,7 +553,7 @@ scenes.select = {
     holdMs = 0;
     lastFace = null;
     clearFace();
-    startTeachable("face");
+    startTeachable();  // 이미 준비돼 있으면 그대로 (실패했었다면 다시 시도)
   },
   choose(i) {
     if (i === sel) return;
@@ -728,7 +742,6 @@ scenes.game = {
       mini = Object.assign(document.createElement("canvas"), { width: 150, height: Math.round((150 * MAP.h) / MAP.w) });
       mini.getContext("2d").drawImage(IMG.bg, 0, 0, mini.width, mini.height);
     }
-    if (tm.running) stopTeachable();  // 카메라는 캐릭터 고를 때만 써요 (게임 중엔 꺼서 컴퓨터가 덜 느려져요)
   },
   // 새 게임: 진행 상황을 모두 처음으로
   newGame() {
@@ -967,7 +980,8 @@ scenes.game = {
     mode = "quiz";
     quiz = newQuiz();
     sfx("select");
-    if (quiz.qs.some((q) => q.isOX)) startTeachable("pose");  // O/X 문제가 있으면 포즈 인식 카메라를 미리 켜 둬요
+    clearPose();
+    startTeachable();  // 이미 준비돼 있으면 그대로
   },
   seatedUpdate(dt) {
     updateWorld(dt, { x: 0, y: 0 });
@@ -1000,6 +1014,7 @@ scenes.game = {
     quiz.t = 0;
     quiz.oxHold = 0;
     quiz.oxLast = null;
+    clearPose();  // 앞 문제의 자세 결과가 남지 않게
     if (quiz.i < QUIZ.length) {
       quiz.state = "ask";
       return;
@@ -1048,7 +1063,7 @@ scenes.game = {
     if (numberKey() === 0 || numberKey() === 1) return this.pick(numberKey());  // 1 = O, 2 = X
     if (action()) return this.pick(quiz.sel);
 
-    const key = tm.kind === "pose" ? tm.pose.key : null;
+    const key = tm.pose.key;
     if (key && quiz.t > 1) {  // 문제가 나오고 1초 뒤부터 (앞 문제의 자세가 그대로 들어가지 않게)
       const i = key === "O" ? 0 : 1;
       quiz.sel = i;
@@ -1070,7 +1085,6 @@ scenes.game = {
   },
   // 퀴즈를 닫으면 일어나서 반장이 마무리 인사를 해요
   closeQuiz() {
-    if (tm.running) stopTeachable();  // 포즈 인식 카메라 끄기
     this.stand();
     quiz = null;
     cooldown.banjang = 1.5;
@@ -1342,7 +1356,7 @@ scenes.game = {
     const p = tm.pose;
     panel(cx - 4, cy - 4, size + 8, size + 8, { fill: "#0a0818", border: "#6a66c0", bw: 3, r: 8, shadow: false });
     const modelFailed = p.status.startsWith("오류");
-    if (tm.kind === "pose" && tm.cameraOn && !tm.error && !modelFailed) {
+    if (tm.cameraOn && !tm.error && !modelFailed) {
       drawingContext.drawImage(tm.canvas, cx, cy, size, size);
       push();
       noStroke();
